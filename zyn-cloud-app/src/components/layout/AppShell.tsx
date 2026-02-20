@@ -30,7 +30,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="app-shell">
             <aside className="sidebar">
                 <div className="sidebar-logo">
-                    <h1>ZYN CLOUD</h1>
+                    <h1>ZYN</h1>
                     <p>Gestión de Inventarios</p>
                 </div>
 

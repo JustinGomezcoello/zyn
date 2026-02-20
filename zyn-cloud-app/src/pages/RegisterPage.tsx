@@ -53,7 +53,7 @@ export default function RegisterPage() {
         <div className="auth-page">
             <div className="auth-card">
                 <div className="auth-logo">
-                    <h1>ZYN CLOUD</h1>
+                    <h1>ZYN</h1>
                     <p>Sistema de Gestión de Inventarios</p>
                 </div>
                 <h2 className="auth-title">Crear Cuenta</h2>
