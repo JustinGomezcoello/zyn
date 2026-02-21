@@ -1,5 +1,5 @@
 ﻿import { useState, useEffect, useCallback } from 'react'
-import { Search, Save, Trash2, Edit, FileText, Download, X } from 'lucide-react'
+import { Search, Trash2, Edit, FileText, Download, X, DollarSign, Edit3, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { D, fmt } from '../lib/businessLogic'
@@ -12,18 +12,25 @@ export default function CuentasPagarPage() {
     const [showReportType, setShowReportType] = useState<'consultor' | 'padre' | null>(null)
 
     return (
-        <div className="p-4 space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <PaymentSection
-                    title="📋 Información del Consultor"
-                    type="consultor"
-                    onShowReport={() => setShowReportType('consultor')}
-                />
-                <PaymentSection
-                    title="📋 Información del Padre Empresarial"
-                    type="padre"
-                    onShowReport={() => setShowReportType('padre')}
-                />
+        <div>
+            <div className="page-header">
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <DollarSign size={22} style={{ color: 'var(--accent-red)' }} /> Cuentas por Pagar
+                </h2>
+                <p>Gestiona los pagos a Consultores y Padres Empresariales.</p>
+            </div>
+
+            <div className="page-body">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
+                    <PaymentSection
+                        type="consultor"
+                        onShowReport={() => setShowReportType('consultor')}
+                    />
+                    <PaymentSection
+                        type="padre"
+                        onShowReport={() => setShowReportType('padre')}
+                    />
+                </div>
             </div>
 
             {showReportType && (
@@ -36,7 +43,7 @@ export default function CuentasPagarPage() {
     )
 }
 
-function PaymentSection({ title, type, onShowReport }: { title: string, type: 'consultor' | 'padre', onShowReport: () => void }) {
+function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', onShowReport: () => void }) {
     const { user } = useAuth()
     const isConsultor = type === 'consultor'
 
@@ -299,95 +306,121 @@ function PaymentSection({ title, type, onShowReport }: { title: string, type: 'c
     }
 
     return (
-        <div className="card h-full">
-            <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                {title}
-            </h3>
-
-            {/* Search Order Section */}
-            <div className="flex items-center gap-2 mb-4 bg-base-200 p-2 rounded">
-                <label className="text-sm font-medium whitespace-nowrap">N° Orden Compra:</label>
-                <input
-                    type="text"
-                    className="input input-sm border rounded w-full"
-                    value={searchOrder}
-                    onChange={e => setSearchOrder(e.target.value)}
-                    placeholder="Ej. 1001"
-                />
-                <button onClick={searchOrderData} className="btn btn-sm btn-primary" disabled={loading}>
-                    <Search size={16} />
-                </button>
-            </div>
-
-            {/* Fields */}
-            <div className="space-y-3 mb-6">
-                {[
-                    { label: isConsultor ? 'Nombre Consultor:' : 'Nombre Padre:', val: formData.nombre, readOnly: true },
-                    { label: 'Por Pagar:', val: formData.porPagar ? `$${formData.porPagar}` : '', readOnly: true, color: 'text-red-400 font-bold' },
-                    { label: 'Valor Pago:', val: formData.valor, key: 'valor', type: 'number' },
-                    { label: 'Fecha de Pago:', val: formData.fecha, key: 'fecha', type: 'date' },
-                    { label: 'Banco:', val: formData.banco, key: 'banco' },
-                    { label: 'Cuenta:', val: formData.cuenta, key: 'cuenta' },
-                    { label: 'Comprobante #:', val: formData.comprobante, key: 'comprobante' },
-                ].map((f, i) => (
-                    <div key={i} className="grid grid-cols-[140px_1fr] items-center gap-2">
-                        <label className="text-right text-xs opacity-70">{f.label}</label>
-                        {f.readOnly ? (
-                            <input type="text" value={f.val} readOnly className={`input input-sm bg-base-200 ${f.color || ''}`} />
-                        ) : (
-                            <input
-                                type={f.type || 'text'}
-                                className="input input-sm border border-gray-600 rounded"
-                                value={f.val}
-                                onChange={e => setFormData({ ...formData, [f.key!]: e.target.value })}
-                                disabled={loading}
-                            />
-                        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+            {/* Sec: Buscar Orden */}
+            <div className="card">
+                <div className="card-title" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 14 }}>
+                    <Search size={15} style={{ color: 'var(--accent-teal)' }} />
+                    <span>🔎 Buscar Orden de Compra</span>
+                </div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end' }}>
+                    <div className="field" style={{ flex: 1 }}>
+                        <label>Número de Orden ({isConsultor ? 'Consultor' : 'Padre Empresarial'})</label>
+                        <input
+                            type="text"
+                            value={searchOrder}
+                            onChange={e => setSearchOrder(e.target.value)}
+                            onKeyDown={e => e.key === 'Enter' && searchOrderData()}
+                            placeholder="Ej: 1001"
+                        />
                     </div>
-                ))}
+                    <button className="btn btn-primary" onClick={searchOrderData} disabled={loading}>
+                        <Search size={13} /> Buscar
+                    </button>
+                </div>
             </div>
 
-            {/* Add Button */}
-            {!formData.id && (
-                <button
-                    onClick={confirmPayment}
-                    className="btn btn-primary w-full mb-6"
-                    disabled={loading || !formData.porPagar}
-                >
-                    <Save size={16} /> Confirmar Pago
-                </button>
-            )}
+            {/* Sec: Info y Pago */}
+            <div className="card">
+                <div className="card-title" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 14 }}>
+                    <FileText size={15} style={{ color: 'var(--accent-blue)' }} />
+                    <span>Información del {isConsultor ? 'Consultor' : 'Padre Empresarial'}</span>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px', gap: 10 }}>
+                        <div className="field">
+                            <label>Nombre {isConsultor ? 'Consultor' : 'Padre'}</label>
+                            <input type="text" value={formData.nombre} readOnly style={{ background: 'var(--bg-input)' }} />
+                        </div>
+                        <div className="field">
+                            <label>Por Pagar</label>
+                            <input
+                                type="text"
+                                style={{ background: 'var(--bg-input)', color: 'var(--accent-amber)', fontWeight: 'bold' }}
+                                value={formData.porPagar ? `$ ${Number(formData.porPagar).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : ''}
+                                readOnly
+                            />
+                        </div>
+                    </div>
 
-            <div className="divider opacity-50">Gestión</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10, marginTop: 4 }}>
+                        <div className="field">
+                            <label>Valor a Pagar ($)</label>
+                            <input type="number" value={formData.valor} onChange={e => setFormData({ ...formData, valor: e.target.value })} disabled={loading} />
+                        </div>
+                        <div className="field">
+                            <label>Fecha de Pago</label>
+                            <input type="date" value={formData.fecha} onChange={e => setFormData({ ...formData, fecha: e.target.value })} disabled={loading} />
+                        </div>
+                        <div className="field">
+                            <label>Banco</label>
+                            <input type="text" value={formData.banco} onChange={e => setFormData({ ...formData, banco: e.target.value })} disabled={loading} />
+                        </div>
+                        <div className="field">
+                            <label>Cuenta</label>
+                            <input type="text" value={formData.cuenta} onChange={e => setFormData({ ...formData, cuenta: e.target.value })} disabled={loading} />
+                        </div>
+                        <div className="field" style={{ gridColumn: 'span 2' }}>
+                            <label>Comprobante #</label>
+                            <input type="text" value={formData.comprobante} onChange={e => setFormData({ ...formData, comprobante: e.target.value })} disabled={loading} />
+                        </div>
+                    </div>
+                </div>
 
-            {/* ID Management Section */}
-            <div className="flex items-center gap-2 mb-4">
-                <label className="text-xs font-medium whitespace-nowrap w-[140px] text-right">Id Pago:</label>
-                <input
-                    type="text"
-                    className="input input-sm border rounded w-full"
-                    value={searchId}
-                    onChange={e => setSearchId(e.target.value)}
-                    placeholder="ID..."
-                />
+                {!formData.id && (
+                    <div style={{ marginTop: 16 }}>
+                        <button
+                            className="btn btn-success"
+                            style={{ width: '100%', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontWeight: 700 }}
+                            onClick={confirmPayment}
+                            disabled={loading || !formData.porPagar}
+                        >
+                            <Check size={14} /> Confirmar Pago del {isConsultor ? 'Consultor' : 'Padre'}
+                        </button>
+                    </div>
+                )}
             </div>
 
-            <div className="flex gap-2 justify-end mb-4">
-                <button onClick={loadPaymentById} className="btn btn-sm btn-info" disabled={loading}>
-                    📂 Cargar
-                </button>
-                <button onClick={modifyPayment} className="btn btn-sm btn-warning" disabled={loading || !formData.id}>
-                    <Edit size={16} /> Modificar
-                </button>
-                <button onClick={deletePayment} className="btn btn-sm btn-error" disabled={loading || !formData.id}>
-                    <Trash2 size={16} /> Eliminar
-                </button>
+            {/* Sec: Modificar/Eliminar */}
+            <div className="card">
+                <div className="card-title" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 14 }}>
+                    <Edit3 size={15} style={{ color: 'var(--accent-amber)' }} />
+                    <span>Cargar · Modificar · Eliminar Pago</span>
+                </div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
+                    <div className="field" style={{ minWidth: 100, flex: 1 }}>
+                        <label>🆔 Id Cuentas Por Pagar</label>
+                        <input type="number" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ID..." />
+                    </div>
+                    <button className="btn btn-secondary" onClick={loadPaymentById} disabled={loading}>
+                        <Search size={13} /> Cargar
+                    </button>
+                    <button className="btn btn-primary" onClick={modifyPayment} disabled={loading || !formData.id} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                        <Edit size={13} /> Modificar
+                    </button>
+                    <button className="btn btn-danger" onClick={deletePayment} disabled={loading || !formData.id}>
+                        <Trash2 size={13} /> Eliminar
+                    </button>
+                </div>
             </div>
 
-            <div className="mt-auto pt-4 border-t border-gray-700">
-                <button onClick={onShowReport} className="btn btn-outline btn-accent w-full text-xs">
-                    <FileText size={14} /> Mostrar Pagos Registrados
-                </button>
+            {/* Sec: Reportes Locales */}
+            <div className="card" style={{ background: 'rgba(56, 189, 248, 0.05)', borderColor: 'rgba(56, 189, 248, 0.2)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <button className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(56, 189, 248, 0.3)', color: 'var(--accent-teal)' }} onClick={onShowReport}>
+                        <FileText size={14} /> Mostrar Pagos a {isConsultor ? 'Consultores' : 'Padres Empresariales'}
+                    </button>
+                </div>
             </div>
         </div>
     )

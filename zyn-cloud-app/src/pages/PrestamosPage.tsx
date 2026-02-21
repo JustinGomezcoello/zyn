@@ -28,6 +28,8 @@ export default function PrestamosPage() {
     const [pFecha, setPFecha] = useState(today())
     const [pCliente, setPCliente] = useState('')
 
+    const [buscandoNombre, setBuscandoNombre] = useState(false)
+
     const [pIdLoad, setPIdLoad] = useState('') // For loading/modifying existing loan
 
     // Devolucion Section
@@ -61,18 +63,19 @@ export default function PrestamosPage() {
     // --- PRESTAMOS ACTIONS ---
 
     const buscarProductoPrestamo = async () => {
-        if (!pCodigo || !user) return
+        if (!pCodigo.trim() || !user) return setPNombre('')
+        setBuscandoNombre(true)
         const { data } = await supabase.from('productos')
             .select('NombreProducto')
-            .eq('user_id', user.id)
-            .eq('CodigoProducto', pCodigo.trim())
-            .single()
+            .eq('CodigoProducto', pCodigo.trim().toUpperCase())
+            .limit(1).single()
 
         if (data) setPNombre(data.NombreProducto ?? '')
         else {
-            showMsg('warning', `Producto "${pCodigo}" no encontrado.`)
+            showMsg('warning', `Producto "${pCodigo.trim()}" no encontrado.`)
             setPNombre('')
         }
+        setBuscandoNombre(false)
     }
 
     const agregarPrestamo = async () => {
@@ -83,7 +86,7 @@ export default function PrestamosPage() {
         setSaving(true)
         try {
             // Check inventory
-            const { data: prod } = await supabase.from('productos').select('*').eq('user_id', user.id).eq('CodigoProducto', pCodigo.trim()).single()
+            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', pCodigo.trim().toUpperCase()).single()
             if (!prod) throw new Error(`Producto "${pCodigo}" no existe.`)
             if (qty > prod.CantidadInventario) throw new Error(`Stock insuficiente. Disponible: ${prod.CantidadInventario}`)
 
@@ -96,7 +99,7 @@ export default function PrestamosPage() {
             // Insert Loan
             await supabase.from('prestamos').insert({
                 user_id: user.id,
-                CodigoProducto: pCodigo.trim(),
+                CodigoProducto: pCodigo.trim().toUpperCase(),
                 NombreProducto: pNombre || prod.NombreProducto,
                 CantidadPrestadaTotal: qty,
                 CantidadPrestada: qty,
@@ -152,7 +155,7 @@ export default function PrestamosPage() {
             }
 
             await supabase.from('prestamos').update({
-                CodigoProducto: pCodigo,
+                CodigoProducto: pCodigo.trim().toUpperCase(),
                 NombreProducto: pNombre,
                 CantidadPrestadaTotal: qty,
                 CantidadPrestada: qty,
@@ -345,157 +348,247 @@ export default function PrestamosPage() {
 
 
     return (
-        <div className="p-4 max-w-6xl mx-auto space-y-8">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold flex items-center gap-2">📦 Préstamos y Devoluciones</h2>
-                {msg && <div className={`alert alert-${msg.type} py-2 px-4 rounded shadow`}>{msg.text}</div>}
+        <div>
+            <div className="page-header">
+                <h2 style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <span style={{ fontSize: 24 }}>📦</span> Préstamos y Devoluciones
+                </h2>
+                <p>Gestiona los préstamos de inventario y el registro de sus devoluciones correspondientes.</p>
+                {msg && (
+                    <div style={{ marginTop: 12, padding: '8px 12px', borderRadius: 6, fontWeight: 600, fontSize: 13, background: msg.type === 'error' ? 'rgba(239, 68, 68, 0.1)' : msg.type === 'success' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(245, 158, 11, 0.1)', color: msg.type === 'error' ? 'var(--accent-red)' : msg.type === 'success' ? 'var(--accent-green)' : 'var(--accent-amber)', border: `1px solid ${msg.type === 'error' ? 'rgba(239, 68, 68, 0.3)' : msg.type === 'success' ? 'rgba(16, 185, 129, 0.3)' : 'rgba(245, 158, 11, 0.3)'}` }}>
+                        {msg.text}
+                    </div>
+                )}
             </div>
 
-            {/* --- SECCION PRESTAMOS --- */}
-            <div className="bg-base-100 p-6 rounded-lg shadow-lg border border-base-300">
-                <h3 className="text-lg font-bold mb-4 flex items-center gap-2">
-                    <span className="text-xl">📤</span> Formulario de Préstamos
-                </h3>
+            <div className="page-body">
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, alignItems: 'start' }}>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                    <div className="form-control">
-                        <label className="label-text font-semibold mb-1">🔢 Código del Producto:</label>
-                        <div className="flex gap-2">
-                            <input className="input input-bordered w-full" value={pCodigo} onChange={e => setPCodigo(e.target.value)} onBlur={buscarProductoPrestamo} />
+                    {/* --- SECCION PRESTAMOS --- */}
+                    <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div className="card-title" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 14 }}>
+                            <span style={{ fontSize: 16 }}>📤</span>
+                            <span>Formulario de Préstamos</span>
+                        </div>
+
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div className="field">
+                                    <label>Código del Producto</label>
+                                    <div style={{ position: 'relative' }}>
+                                        <input type="text" value={pCodigo} onChange={e => setPCodigo(e.target.value)} onBlur={buscarProductoPrestamo} placeholder="Ej: E090" style={{ textTransform: 'uppercase', paddingRight: buscandoNombre ? 36 : 12, width: '100%' }} />
+                                        {buscandoNombre && <div style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)' }}>
+                                            <div className="spinner" style={{ width: 14, height: 14, borderWidth: 2 }} />
+                                        </div>}
+                                    </div>
+                                </div>
+                                <div className="field">
+                                    <label>Cantidad Prestada</label>
+                                    <input type="number" value={pCantidad} onChange={e => setPCantidad(e.target.value)} />
+                                </div>
+                                <div className="field" style={{ gridColumn: 'span 2' }}>
+                                    <label>Nombre del Producto</label>
+                                    <input type="text" value={pNombre} readOnly className="readonly" placeholder="Se llena automáticamente al ingresar el código" />
+                                </div>
+                                <div className="field">
+                                    <label>Fecha (YYYY-MM-DD)</label>
+                                    <input type="date" value={pFecha} onChange={e => setPFecha(e.target.value)} />
+                                </div>
+                                <div className="field">
+                                    <label>Cliente</label>
+                                    <input type="text" value={pCliente} onChange={e => setPCliente(e.target.value)} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 16, marginBottom: 20 }}>
+                            <button
+                                className="btn btn-success"
+                                style={{ width: '100%', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontWeight: 700 }}
+                                onClick={agregarPrestamo}
+                                disabled={saving || !!pIdLoad}
+                            >
+                                <Plus size={14} /> Agregar Préstamo
+                            </button>
+                        </div>
+
+                        {/* ID Actions Bar */}
+                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 'auto' }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                <div className="field" style={{ flex: 1, minWidth: 100 }}>
+                                    <label>🆔 IdPrestamo</label>
+                                    <input type="text" value={pIdLoad} onChange={e => setPIdLoad(e.target.value)} placeholder="ID..." />
+                                </div>
+                                <div className="btn-group" style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-secondary" onClick={cargarPrestamo} disabled={loading}>
+                                        <RefreshCw size={13} /> Cargar
+                                    </button>
+                                    <button className="btn btn-primary" onClick={modificarPrestamo} disabled={saving || !pIdLoad} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                                        <Edit size={13} /> Modificar
+                                    </button>
+                                    <button className="btn btn-danger" onClick={eliminarPrestamo} disabled={saving || !pIdLoad}>
+                                        <Trash2 size={13} /> Eliminar
+                                    </button>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                    <div className="form-control md:col-span-3">
-                        <label className="label-text font-semibold mb-1">🏷️ Nombre del Producto:</label>
-                        <input className="input input-bordered w-full bg-base-200" readOnly value={pNombre} />
-                    </div>
 
-                    <div className="form-control">
-                        <label className="label-text font-semibold mb-1">📦 Cantidad Prestada:</label>
-                        <input type="number" className="input input-bordered w-full" value={pCantidad} onChange={e => setPCantidad(e.target.value)} />
-                    </div>
-                    <div className="form-control">
-                        <label className="label-text font-semibold mb-1">📅 Fecha (YYYY-MM-DD):</label>
-                        <input type="date" className="input input-bordered w-full" value={pFecha} onChange={e => setPFecha(e.target.value)} />
-                    </div>
-                    <div className="form-control md:col-span-2">
-                        <label className="label-text font-semibold mb-1">👤 Cliente:</label>
-                        <input className="input input-bordered w-full" value={pCliente} onChange={e => setPCliente(e.target.value)} />
+                    {/* --- SECCION DEVOLUCION --- */}
+                    <div className="card" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                        <div className="card-title" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: 16 }}>📥</span>
+                                <span>Devolución</span>
+                            </div>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={devActive}
+                                    onChange={e => setDevActive(e.target.checked)}
+                                    style={{ accentColor: 'var(--accent-green)', width: 16, height: 16 }}
+                                />
+                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Activar Devolución</span>
+                            </label>
+                        </div>
+
+                        <div style={{
+                            display: 'flex', flexDirection: 'column', gap: 10, flex: 1,
+                            opacity: devActive ? 1 : 0.4, pointerEvents: devActive ? 'auto' : 'none', transition: 'opacity 0.2s'
+                        }}>
+                            <div className="field">
+                                <label>Orden de Compra</label>
+                                <input type="text" value={dOrdenCompra} onChange={e => setDOrdenCompra(e.target.value)} disabled={!devActive} />
+                            </div>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+                                <div className="field">
+                                    <label>Cantidad Devolución</label>
+                                    <input type="number" value={dCantidad} onChange={e => setDCantidad(e.target.value)} disabled={!devActive} />
+                                </div>
+                                <div className="field">
+                                    <label>Fecha Devolución</label>
+                                    <input type="date" value={dFecha} onChange={e => setDFecha(e.target.value)} disabled={!devActive} />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div style={{
+                            marginTop: 16, marginBottom: 20,
+                            opacity: devActive ? 1 : 0.4, pointerEvents: devActive ? 'auto' : 'none', transition: 'opacity 0.2s'
+                        }}>
+                            <button
+                                className="btn btn-success"
+                                style={{ width: '100%', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontWeight: 700 }}
+                                onClick={agregarDevolucion}
+                                disabled={saving || !devActive || !!dIdLoad}
+                            >
+                                <Plus size={14} /> Agregar Devolución
+                            </button>
+                        </div>
+
+                        {/* ID Actions Bar (Dev) */}
+                        <div style={{
+                            borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 'auto',
+                            opacity: devActive ? 1 : 0.4, pointerEvents: devActive ? 'auto' : 'none', transition: 'opacity 0.2s'
+                        }}>
+                            <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+                                <div className="field" style={{ flex: 1, minWidth: 100 }}>
+                                    <label>🆔 IdDevolución</label>
+                                    <input type="text" value={dIdLoad} onChange={e => setDIdLoad(e.target.value)} disabled={!devActive} placeholder="ID..." />
+                                </div>
+                                <div className="btn-group" style={{ display: 'flex', gap: 8 }}>
+                                    <button className="btn btn-secondary" onClick={cargarDevolucion} disabled={loading || !devActive}>
+                                        <RefreshCw size={13} /> Cargar
+                                    </button>
+                                    <button className="btn btn-primary" onClick={modificarDevolucion} disabled={saving || !devActive || !dIdLoad} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                                        <Edit size={13} /> Modificar
+                                    </button>
+                                    <button className="btn btn-danger" onClick={eliminarDevolucion} disabled={saving || !devActive || !dIdLoad}>
+                                        <Trash2 size={13} /> Eliminar
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
-                <div className="flex justify-center mb-6">
-                    <button className="btn btn-success text-white w-48" onClick={agregarPrestamo} disabled={saving || !!pIdLoad}>
-                        <Plus size={18} /> Agregar Préstamo
-                    </button>
-                </div>
+                {/* --- DATA SUMMARY TABLES --- */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, marginTop: 20, alignItems: 'start' }}>
 
-                {/* ID Actions Bar */}
-                <div className="flex flex-wrap items-center gap-4 bg-base-200 p-4 rounded-lg">
-                    <span className="font-bold">🆔 IdPrestamo:</span>
-                    <input className="input input-bordered w-32" value={pIdLoad} onChange={e => setPIdLoad(e.target.value)} placeholder="ID..." />
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <div className="card-title" style={{ padding: '16px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-input)' }}>
+                            📋 Historial Préstamos
+                        </div>
+                        <div style={{ maxHeight: 350, overflowY: 'auto', padding: 10 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ color: 'var(--text-muted)' }}>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Fecha</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Prod</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Cant</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Pend</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {prestamos.map(p => (
+                                        <tr key={p.id} style={{ cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid var(--border)' }}
+                                            onClick={() => { setPIdLoad(String(p.id)); cargarPrestamo() }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <td style={{ padding: '8px 4px' }}>{p.id}</td>
+                                            <td style={{ padding: '8px 4px' }}>{p.FechaPrestamo}</td>
+                                            <td style={{ padding: '8px 4px' }}>{p.CodigoProducto}</td>
+                                            <td style={{ padding: '8px 4px' }}>{p.CantidadPrestadaTotal}</td>
+                                            <td style={{ padding: '8px 4px', color: p.CantidadPrestada > 0 ? 'var(--accent-amber)' : 'inherit', fontWeight: p.CantidadPrestada > 0 ? 'bold' : 'normal' }}>
+                                                {p.CantidadPrestada}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {prestamos.length === 0 && <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay préstamos registrados.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
 
-                    <button className="btn btn-success text-white btn-sm" onClick={cargarPrestamo} disabled={loading}>
-                        <RefreshCw size={16} /> Cargar Datos
-                    </button>
-                    <button className="btn btn-info text-white btn-sm" onClick={modificarPrestamo} disabled={saving || !pIdLoad}>
-                        <Edit size={16} /> Modificar Préstamo
-                    </button>
-                    <button className="btn btn-error text-white btn-sm" onClick={eliminarPrestamo} disabled={saving || !pIdLoad}>
-                        <Trash2 size={16} /> Eliminar Préstamo
-                    </button>
+                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                        <div className="card-title" style={{ padding: '16px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-input)' }}>
+                            📋 Historial Devoluciones
+                        </div>
+                        <div style={{ maxHeight: 350, overflowY: 'auto', padding: 10 }}>
+                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                                <thead>
+                                    <tr style={{ color: 'var(--text-muted)' }}>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Fecha</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID Pre</th>
+                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Cant</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {devoluciones.map(d => (
+                                        <tr key={d.id} style={{ cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid var(--border)' }}
+                                            onClick={() => { setDIdLoad(String(d.id)); setDevActive(true); cargarDevolucion() }}
+                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
+                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                        >
+                                            <td style={{ padding: '8px 4px' }}>{d.id}</td>
+                                            <td style={{ padding: '8px 4px' }}>{d.FechaDevolucion}</td>
+                                            <td style={{ padding: '8px 4px' }}>{d.IdPrestamo}</td>
+                                            <td style={{ padding: '8px 4px', color: 'var(--accent-green)', fontWeight: 'bold' }}>
+                                                {d.CantidadDevuelta}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                    {devoluciones.length === 0 && <tr><td colSpan={4} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay devoluciones registradas.</td></tr>}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
                 </div>
             </div>
-
-            {/* --- SECCION DEVOLUCION --- */}
-            <div className="bg-base-100 p-6 rounded-lg shadow-lg border border-base-300 relative">
-                <div className="flex items-center gap-4 mb-4 border-b pb-2">
-                    <h3 className="text-lg font-bold flex items-center gap-2">
-                        <span className="text-xl">📥</span> Devolución
-                    </h3>
-                    <div className="form-control">
-                        <label className="cursor-pointer label">
-                            <input type="checkbox" className="checkbox checkbox-primary" checked={devActive} onChange={e => setDevActive(e.target.checked)} />
-                            <span className="label-text ml-2 font-bold">Activar Devolución</span>
-                        </label>
-                    </div>
-                </div>
-
-                <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 mb-4 transition-opacity ${devActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                    <div className="form-control">
-                        <label className="label-text font-semibold mb-1">📜 Orden de Compra:</label>
-                        <input className="input input-bordered w-full" value={dOrdenCompra} onChange={e => setDOrdenCompra(e.target.value)} disabled={!devActive} />
-                    </div>
-                    <div className="form-control">
-                        <label className="label-text font-semibold mb-1">📦 Cantidad Devolución:</label>
-                        <input type="number" className="input input-bordered w-full" value={dCantidad} onChange={e => setDCantidad(e.target.value)} disabled={!devActive} />
-                    </div>
-                    <div className="form-control">
-                        <label className="label-text font-semibold mb-1">📅 Fecha Devolución:</label>
-                        <input type="date" className="input input-bordered w-full" value={dFecha} onChange={e => setDFecha(e.target.value)} disabled={!devActive} />
-                    </div>
-                </div>
-
-                <div className={`flex justify-center mb-6 transition-opacity ${devActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                    <button className="btn btn-success text-white w-48" onClick={agregarDevolucion} disabled={saving || !devActive || !!dIdLoad}>
-                        <Plus size={18} /> Agregar Devolución
-                    </button>
-                </div>
-
-                {/* ID Actions Bar (Dev) */}
-                <div className={`flex flex-wrap items-center gap-4 bg-base-200 p-4 rounded-lg transition-opacity ${devActive ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-                    <span className="font-bold">🆔 IdDevolucion:</span>
-                    <input className="input input-bordered w-32" value={dIdLoad} onChange={e => setDIdLoad(e.target.value)} disabled={!devActive} placeholder="ID..." />
-
-                    <button className="btn btn-success text-white btn-sm" onClick={cargarDevolucion} disabled={loading || !devActive}>
-                        <RefreshCw size={16} /> Cargar Datos
-                    </button>
-                    <button className="btn btn-info text-white btn-sm" onClick={modificarDevolucion} disabled={saving || !devActive || !dIdLoad}>
-                        <Edit size={16} /> Modificar Devolución
-                    </button>
-                    <button className="btn btn-error text-white btn-sm" onClick={eliminarDevolucion} disabled={saving || !devActive || !dIdLoad}>
-                        <Trash2 size={16} /> Eliminar Devolución
-                    </button>
-                </div>
-            </div>
-
-            {/* --- DATA SUMMARY TABLES --- */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mt-8">
-                <div className="card bg-base-100 shadow p-4 overflow-auto max-h-96">
-                    <h4 className="font-bold mb-2 sticky top-0 bg-base-100">📋 Historial Préstamos</h4>
-                    <table className="table table-xs w-full">
-                        <thead><tr><th>ID</th><th>Fecha</th><th>Prod</th><th>Cant</th><th>Pend</th></tr></thead>
-                        <tbody>
-                            {prestamos.map(p => (
-                                <tr key={p.id} className="hover:bg-base-200 cursor-pointer" onClick={() => { setPIdLoad(String(p.id)); cargarPrestamo() }}>
-                                    <td>{p.id}</td>
-                                    <td>{p.FechaPrestamo}</td>
-                                    <td>{p.CodigoProducto}</td>
-                                    <td>{p.CantidadPrestadaTotal}</td>
-                                    <td className={p.CantidadPrestada > 0 ? 'text-warning font-bold' : ''}>{p.CantidadPrestada}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                <div className="card bg-base-100 shadow p-4 overflow-auto max-h-96">
-                    <h4 className="font-bold mb-2 sticky top-0 bg-base-100">📋 Historial Devoluciones</h4>
-                    <table className="table table-xs w-full">
-                        <thead><tr><th>ID</th><th>Fecha</th><th>ID Pres</th><th>Cant</th></tr></thead>
-                        <tbody>
-                            {devoluciones.map(d => (
-                                <tr key={d.id} className="hover:bg-base-200 cursor-pointer" onClick={() => { setDIdLoad(String(d.id)); setDevActive(true); cargarDevolucion() }}>
-                                    <td>{d.id}</td>
-                                    <td>{d.FechaDevolucion}</td>
-                                    <td>{d.IdPrestamo}</td>
-                                    <td className="text-success font-bold">{d.CantidadDevuelta}</td>
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
         </div>
     )
 }

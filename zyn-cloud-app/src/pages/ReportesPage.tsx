@@ -71,18 +71,18 @@ export default function ReportesPage() {
 
             // Aplicar filtros específicos
             if (filters.fechaInicio && ['compras', 'ordenes', 'prestamos', 'devoluciones'].includes(report.key)) {
-                const fechaCol = report.key === 'compras' ? 'FechaCompra' 
+                const fechaCol = report.key === 'compras' ? 'FechaCompra'
                     : report.key === 'ordenes' ? 'FechaOrdenCompra'
-                    : report.key === 'prestamos' ? 'FechaPrestamo'
-                    : 'FechaDevolucion'
+                        : report.key === 'prestamos' ? 'FechaPrestamo'
+                            : 'FechaDevolucion'
                 query = query.gte(fechaCol, filters.fechaInicio)
             }
 
             if (filters.fechaFin && ['compras', 'ordenes', 'prestamos', 'devoluciones'].includes(report.key)) {
-                const fechaCol = report.key === 'compras' ? 'FechaCompra' 
+                const fechaCol = report.key === 'compras' ? 'FechaCompra'
                     : report.key === 'ordenes' ? 'FechaOrdenCompra'
-                    : report.key === 'prestamos' ? 'FechaPrestamo'
-                    : 'FechaDevolucion'
+                        : report.key === 'prestamos' ? 'FechaPrestamo'
+                            : 'FechaDevolucion'
                 query = query.lte(fechaCol, filters.fechaFin)
             }
 
@@ -116,7 +116,8 @@ export default function ReportesPage() {
             if (error) throw error
 
             setData(result || [])
-            calculateSummary(report.key, result || [])        } catch (err: any) {
+            calculateSummary(report.key, result || [])
+        } catch (err: any) {
             console.error('Error loading report:', err)
             setData([])
         } finally {
@@ -239,14 +240,14 @@ export default function ReportesPage() {
         try {
             // Crear workbook y worksheet
             const wb = XLSX.utils.book_new()
-            
+
             // Preparar datos con headers
             const wsData = [
                 report.cols, // Headers
                 ...filtered.map(row => report.cols.map(col => {
                     const val = row[col]
                     if (val == null) return ''
-                    
+
                     // Formatear fechas
                     if (col.toLowerCase().includes('fecha') && val) {
                         try {
@@ -255,10 +256,10 @@ export default function ReportesPage() {
                             return val
                         }
                     }
-                    
+
                     // Mantener números como números para Excel
                     if (typeof val === 'number') return val
-                    
+
                     return val
                 }))
             ]
@@ -331,11 +332,11 @@ export default function ReportesPage() {
 
             // Preparar datos para la tabla
             const headers = [report.cols]
-            const body = filtered.map(row => 
+            const body = filtered.map(row =>
                 report.cols.map(col => {
                     const val = row[col]
                     if (val == null) return ''
-                    
+
                     // Formatear valores
                     if (col.toLowerCase().includes('fecha') && val) {
                         try {
@@ -344,14 +345,14 @@ export default function ReportesPage() {
                             return String(val)
                         }
                     }
-                    
-                    if ((col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || 
-                         col.toLowerCase().includes('valor') || col.toLowerCase().includes('comision') || 
-                         col.includes('Pagado') || col.includes('Saldo') || col.includes('Utilidad') || 
-                         col.toLowerCase().includes('iva')) && typeof val === 'number') {
+
+                    if ((col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') ||
+                        col.toLowerCase().includes('valor') || col.toLowerCase().includes('comision') ||
+                        col.includes('Pagado') || col.includes('Saldo') || col.includes('Utilidad') ||
+                        col.toLowerCase().includes('iva')) && typeof val === 'number') {
                         return fmt(val)
                     }
-                    
+
                     return String(val)
                 })
             )
@@ -378,8 +379,8 @@ export default function ReportesPage() {
                 },
                 columnStyles: report.cols.reduce((acc, col, idx) => {
                     // Alinear números a la derecha
-                    if (col.toLowerCase().includes('cantidad') || 
-                        col.toLowerCase().includes('precio') || 
+                    if (col.toLowerCase().includes('cantidad') ||
+                        col.toLowerCase().includes('precio') ||
                         col.toLowerCase().includes('costo') ||
                         col.toLowerCase().includes('valor') ||
                         col.toLowerCase().includes('iva') ||
@@ -438,7 +439,18 @@ export default function ReportesPage() {
     const filtered = filtro
         ? data.filter(row => {
             const searchStr = filtro.toLowerCase()
-            return report.cols.some(col => {
+
+            // Columnas relevantes para búsqueda de texto (excluye Categoria, precios, cantidades, fechas)
+            const searchableColumns = [
+                'CodigoProducto', 'NombreProducto', 'NumOrdenCompra', 'OrdenCompra',
+                'NombreCliente', 'Cliente', 'NombreConsultor',
+                'NombrePadreEmpresarial', 'Proveedor'
+            ]
+
+            const colsToSearch = report.cols.filter(col => searchableColumns.includes(col))
+            const finalColsToSearch = colsToSearch.length > 0 ? colsToSearch : report.cols
+
+            return finalColsToSearch.some(col => {
                 const val = row[col]
                 return val != null && String(val).toLowerCase().includes(searchStr)
             })
@@ -541,7 +553,7 @@ export default function ReportesPage() {
                                         </div>
                                     </>
                                 )}
-                                
+
                                 {/* Filtro Código Producto */}
                                 {['compras', 'inventario', 'productos', 'ordenes', 'prestamos', 'devoluciones'].includes(report.key) && (
                                     <div className="field">
@@ -702,7 +714,7 @@ export default function ReportesPage() {
                     )}
 
                     <div style={{ marginTop: 12, fontSize: 12, color: 'var(--text-muted)' }}>
-                        {filtered.length} registro{filtered.length !== 1 ? 's' : ''} 
+                        {filtered.length} registro{filtered.length !== 1 ? 's' : ''}
                         {filtro && data.length !== filtered.length && ` de ${data.length} totales`}
                     </div>
                 </div>

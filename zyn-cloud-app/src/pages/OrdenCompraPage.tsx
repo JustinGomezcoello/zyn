@@ -654,7 +654,7 @@ export default function OrdenCompraPage() {
                                 </div>
                                 <div className="field">
                                     <label>📦 Nombre del Producto</label>
-                                    <input value={nombreProd} readOnly className="readonly" placeholder="Se llena automáticamente" />
+                                    <input value={nombreProd} readOnly className="readonly" placeholder="Se llena automáticamente al ingresar el código" />
                                 </div>
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '200px 1fr', gap: 12, marginBottom: 16 }}>

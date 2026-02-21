@@ -1,4 +1,4 @@
-# 🏗️ ARQUITECTURA DE ZYN CLOUD
+# 🏗️ ARQUITECTURA DE ZYN
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -263,5 +263,5 @@ Leyenda:
 ---
 
 **Creado**: 20 de Febrero, 2026  
-**Proyecto**: ZYN CLOUD v1.0  
+**Proyecto**: ZYN v1.0  
 **Framework**: React + TypeScript + Supabase
