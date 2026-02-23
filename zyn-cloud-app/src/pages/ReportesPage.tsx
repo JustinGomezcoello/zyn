@@ -25,14 +25,15 @@ const GLOBAL_REPORTS = ['productos']
 
 const REPORTS: ReportConfig[] = [
     { key: 'compras', label: 'Compras', icon: <ShoppingCart size={16} />, table: 'compras', cols: ['id', 'FechaCompra', 'CodigoProducto', 'NombreProducto', 'CantidadComprada', 'CostoSinIVA', 'PorcentajeIVA', 'IVA', 'CostoConIVA', 'Proveedor'], hasFilters: true },
-    { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['CodigoProducto', 'CantidadInicial', 'CantidadInventario', 'CantidadVendida', 'CantidadPrestada'], hasFilters: true },
-    { key: 'productos', label: 'Catálogo Global', icon: <Package size={16} />, table: 'productos', cols: ['CodigoProducto', 'NombreProducto', 'Categoria', 'CostoConIVA', 'PvpSinIVA', 'PrecioVentaConIVA', 'IVA'], hasFilters: true },
-    { key: 'ordenes', label: 'Órdenes de Compra', icon: <FileText size={16} />, table: 'orden_compra', cols: ['id', 'NumOrdenCompra', 'FechaOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'CodigoProducto', 'CantidadVendida', 'PrecioVentaConIVA', 'ValorXCobrarConIVA', 'NombreConsultor'], hasFilters: true },
-    { key: 'cobrar', label: 'Cuentas por Cobrar', icon: <DollarSign size={16} />, table: 'cuentas_por_cobrar', cols: ['id', 'NumOrdenCompra', 'NombreCliente', 'TotalEfectivo', 'ValorXCobrarConIVATotal', 'SaldoXCobrarCliente', 'UtilidadDescontadoIVASRI', 'PorcentajeGanancia'], hasFilters: true },
-    { key: 'consultor', label: 'Pagos Consultor', icon: <TrendingDown size={16} />, table: 'cuentas_por_pagar_consultor', cols: ['id', 'NumOrdenCompra', 'NombreConsultor', 'ComisionPorPagarConsultorTotal', 'PagadoConsultor', 'SaldoFinal', 'FechaPagoConsultor'], hasFilters: false },
-    { key: 'padre', label: 'Pagos Padre Empresarial', icon: <TrendingDown size={16} />, table: 'cuentas_por_pagar_padre_empresarial', cols: ['id', 'NumOrdenCompra', 'NombrePadreEmpresarial', 'ComisionPorPagarPadreEmpresarialTotal', 'PagadoPadreEmpresarial', 'SaldoFinal', 'FechaPagoPadreEmpresarial'], hasFilters: false },
-    { key: 'prestamos', label: 'Préstamos', icon: <Users size={16} />, table: 'prestamos', cols: ['id', 'FechaPrestamo', 'CodigoProducto', 'NombreProducto', 'Cliente', 'CantidadPrestadaTotal', 'CantidadDevuelta', 'CantidadPrestada'], hasFilters: true },
-    { key: 'devoluciones', label: 'Devoluciones', icon: <Users size={16} />, table: 'devoluciones', cols: ['id', 'OrdenCompra', 'CodigoProducto', 'CantidadDevuelta', 'FechaDevolucion', 'Cliente', 'IdPrestamo'], hasFilters: true },
+    { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['id', 'CodigoProducto', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario', 'created_at', 'updated_at'], hasFilters: true },
+    { key: 'productos', label: 'Catálogo Global', icon: <Package size={16} />, table: 'productos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'Categoria', 'CostoConIVA', 'PvpSinIVA', 'CalculoIVA', 'PrecioVentaConIVA', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario', 'IVA'], hasFilters: true },
+    { key: 'ordenes', label: 'Órdenes de Compra', icon: <FileText size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'FechaOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'NombreConsultor', 'PorcentajeComisionConsultor', 'ComisionPorPagarConsultor', 'NombrePadreEmpresarial', 'PorcentajePadreEmpresarial', 'ComisionPorPagarPadreEmpresarial', 'PorcentajeIVA', 'CodigoProducto', 'NombreProducto', 'CantidadVendida', 'PorcentajeDescuento', 'PrecioVentaConIVA', 'PVPSinIVA', 'ValorDescuento', 'BaseRetencion', 'ValorBaseRetencion', 'ValorCliente', 'ValorXCobrarConIVA', 'CostoConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
+    { key: 'cobrar', label: 'Cuentas por Cobrar Pagadas', icon: <DollarSign size={16} />, table: 'cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'NombreCliente', 'TipoPagoEfecTrans', 'AbonoEfectivoTransferencia1', 'FechaPagadoEfectivo1', 'AbonoEfectivoTransferencia2', 'FechaPagadoEfectivo2', 'AbonoEfectivoTransferencia3', 'FechaPagadoEfectivo3', 'TotalEfectivo', 'Factura', 'NumeroFactura', 'IVAPagoEfectivoFactura', 'TipoPago2', 'ValorPagadoTarjeta2', 'Banco2', 'Lote2', 'FechaPagado2', 'PorcentajeComisionBanco2', 'ComisionTCFactura2', 'PorcentajeIRF2', 'IRF2', 'PorcentajeRetIVA2', 'RetIVAPagoTarjetaCredito2', 'TotalComisionBanco2', 'ValorNetoTC2', 'TipoPago3', 'ValorPagadoTarjeta3', 'Banco3', 'Lote3', 'FechaPagado3', 'PorcentajeComisionBanco3', 'ComisionTCFactura3', 'PorcentajeIRF3', 'IRF3', 'PorcentajeRetIVA3', 'RetIVAPagoTarjetaCredito3', 'TotalComisionBanco3', 'ValorNetoTC3', 'ComisionBancoTotales', 'TotalesValorNetoTC', 'ValorXCobrarConIVATotal', 'BaseRetencionTotal', 'SaldoXCobrarCliente', 'CostoConIVA', 'UtilidadDescontadoIVASRI', 'PorcentajeGanancia'], hasFilters: true },
+    { key: 'consultar_cobrar', label: 'Consultar Cuentas por Cobrar', icon: <DollarSign size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['NumOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'ValorXCobrarConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
+    { key: 'consultor', label: 'Pagos Consultor', icon: <TrendingDown size={16} />, table: 'cuentas_pagar_consultor', cols: ['id', 'NumOrdenCompra', 'NombreConsultor', 'ComisionPorPagar', 'Pagado', 'FechaOrdenCompra'], hasFilters: false },
+    { key: 'padre', label: 'Pagos Padre Empresarial', icon: <TrendingDown size={16} />, table: 'cuentas_pagar_padre', cols: ['id', 'NumOrdenCompra', 'NombrePadreEmpresarial', 'ComisionPorPagar', 'Pagado', 'FechaOrdenCompra'], hasFilters: false },
+    { key: 'prestamos', label: 'Préstamos', icon: <Users size={16} />, table: 'prestamos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'CantidadPrestadaTotal', 'CantidadPrestada', 'CantidadDevuelta', 'FechaPrestamo', 'Cliente'], hasFilters: true },
+    { key: 'devoluciones', label: 'Devoluciones', icon: <Users size={16} />, table: 'devoluciones', cols: ['id', 'IdPrestamo', 'CodigoProducto', 'NombreProducto', 'CantidadDevuelta', 'FechaDevolucion', 'Cliente'], hasFilters: true },
 ]
 
 export default function ReportesPage() {
@@ -50,8 +51,12 @@ export default function ReportesPage() {
         cliente: '',
         numeroOrden: '',
         ciudad: '',
+        consultor: '',
+        padreEmpresarial: '',
+        estadoCobro: 'todas',
     })
-    const [summary, setSummary] = useState('')
+    const [summary, setSummary] = useState<React.ReactNode>('')
+    const [summaryString, setSummaryString] = useState('')
 
     const report = REPORTS.find(r => r.key === activeReport)!
     const loadReport = useCallback(async () => {
@@ -94,17 +99,33 @@ export default function ReportesPage() {
                 query = query.ilike('Proveedor', `%${filters.proveedor}%`)
             }
 
-            if (filters.cliente && ['ordenes', 'prestamos', 'devoluciones', 'cobrar'].includes(report.key)) {
-                const clienteCol = report.key === 'ordenes' || report.key === 'cobrar' ? 'NombreCliente' : 'Cliente'
+            if (filters.cliente && ['ordenes', 'prestamos', 'devoluciones', 'cobrar', 'consultar_cobrar'].includes(report.key)) {
+                const clienteCol = report.key === 'ordenes' || report.key === 'cobrar' || report.key === 'consultar_cobrar' ? 'NombreCliente' : 'Cliente'
                 query = query.ilike(clienteCol, `%${filters.cliente}%`)
             }
 
-            if (filters.numeroOrden && ['ordenes', 'cobrar'].includes(report.key)) {
+            if (filters.numeroOrden && ['ordenes', 'cobrar', 'consultar_cobrar'].includes(report.key)) {
                 query = query.eq('NumOrdenCompra', parseInt(filters.numeroOrden))
             }
 
-            if (filters.ciudad && report.key === 'ordenes') {
+            if (filters.ciudad && ['ordenes', 'consultar_cobrar'].includes(report.key)) {
                 query = query.ilike('Ciudad', `%${filters.ciudad}%`)
+            }
+
+            if (filters.consultor && report.key === 'ordenes') {
+                query = query.ilike('NombreConsultor', `%${filters.consultor}%`)
+            }
+
+            if (filters.padreEmpresarial && report.key === 'ordenes') {
+                query = query.ilike('NombrePadreEmpresarial', `%${filters.padreEmpresarial}%`)
+            }
+
+            if (report.key === 'consultar_cobrar') {
+                if (filters.estadoCobro === 'cobradas') {
+                    query = query.lte('SaldoXCobrarCliente', 0)
+                } else if (filters.estadoCobro === 'por_cobrar') {
+                    query = query.gt('SaldoXCobrarCliente', 0)
+                }
             }
 
             // Ordenar
@@ -133,10 +154,12 @@ export default function ReportesPage() {
     const calculateSummary = (reportKey: string, data: any[]) => {
         if (data.length === 0) {
             setSummary('')
+            setSummaryString('')
             return
         }
 
-        let summaryText = ''
+        let summaryText: React.ReactNode = ''
+        let summaryPlain = ''
 
         switch (reportKey) {
             case 'compras':
@@ -144,56 +167,105 @@ export default function ReportesPage() {
                 const totalIVA = data.reduce((sum, row) => sum + (parseFloat(row.IVA) || 0), 0)
                 const totalCostoConIVA = data.reduce((sum, row) => sum + (parseFloat(row.CostoConIVA) || 0), 0)
                 const totalCantidad = data.reduce((sum, row) => sum + (parseFloat(row.CantidadComprada) || 0), 0)
-                summaryText = `📊 Costo Sin IVA: ${fmt(totalCostoSinIVA)} | 💰 IVA: ${fmt(totalIVA)} | 📦 Total con IVA: ${fmt(totalCostoConIVA)} | 🏷️ Cantidad: ${totalCantidad}`
+                summaryPlain = `📊 Costo Sin IVA: ${fmt(totalCostoSinIVA)} | 💰 IVA: ${fmt(totalIVA)} | 📦 Total con IVA: ${fmt(totalCostoConIVA)} | 🏷️ Cantidad: ${totalCantidad}`
+                summaryText = summaryPlain
                 break
 
             case 'ordenes':
                 const totalCantidadVendida = data.reduce((sum, row) => sum + (parseFloat(row.CantidadVendida) || 0), 0)
                 const totalValorCobrar = data.reduce((sum, row) => sum + (parseFloat(row.ValorXCobrarConIVA) || 0), 0)
-                summaryText = `🏷️ Cantidad Vendida: ${totalCantidadVendida} | 💲 Total por Cobrar: ${fmt(totalValorCobrar)}`
+                const totalSaldoPorCobrar = data.reduce((sum, row) => sum + (parseFloat(row.SaldoXCobrarCliente) || 0), 0)
+                const totalConsultor = data.reduce((sum, row) => sum + (parseFloat(row.ComisionPorPagarConsultor) || 0), 0)
+                const totalPadre = data.reduce((sum, row) => sum + (parseFloat(row.ComisionPorPagarPadreEmpresarial) || 0), 0)
+
+                summaryPlain = `Totales del Rango de Fecha Seleccionado\nCantidad Vendida: ${totalCantidadVendida.toFixed(4)} | Valor por Cobrar con IVA: ${totalValorCobrar.toFixed(4)} | Saldo por Cobrar Total: ${totalSaldoPorCobrar.toFixed(4)} | Comisión Consultor: ${totalConsultor.toFixed(4)} | Comisión Padre Empresarial: ${totalPadre.toFixed(4)}`
+
+                summaryText = (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontFamily: 'monospace', fontSize: 13, whiteSpace: 'pre-wrap', textAlign: 'center' }}>
+                        {`🔹 Totales del Rango de Fecha Seleccionado 🔹
+--------------------------------------------
+🏷️ Cantidad Vendida: ${totalCantidadVendida.toFixed(4)}
+💲 Valor por Cobrar con IVA: ${totalValorCobrar.toFixed(4)}
+💼 Saldo por Cobrar Total: ${totalSaldoPorCobrar.toFixed(4)}
+💰 Comisión Consultor: ${totalConsultor.toFixed(4)}
+📌 Comisión Padre Empresarial: ${totalPadre.toFixed(4)}`}
+                    </div>
+                )
                 break
 
             case 'cobrar':
-                const totalCobrado = data.reduce((sum, row) => sum + (parseFloat(row.TotalEfectivo) || 0), 0)
                 const totalSaldo = data.reduce((sum, row) => sum + (parseFloat(row.SaldoXCobrarCliente) || 0), 0)
-                const totalUtilidad = data.reduce((sum, row) => sum + (parseFloat(row.UtilidadDescontadoIVASRI) || 0), 0)
-                summaryText = `💰 Cobrado: ${fmt(totalCobrado)} | 💼 Saldo: ${fmt(totalSaldo)} | 📈 Utilidad: ${fmt(totalUtilidad)}`
+                summaryPlain = `Total acumulado por cobrar: ${fmt(totalSaldo)}`
+
+                summaryText = (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', fontSize: 13, fontFamily: 'monospace', whiteSpace: 'pre-wrap' }}>
+                        <div style={{ maxHeight: '150px', overflowY: 'auto', paddingRight: '8px' }}>
+                            {data.map((row, idx) => (
+                                <div key={idx} style={{ marginBottom: '8px' }}>
+                                    {`🔢 Orden: ${row.NumOrdenCompra} - 👤 Cliente: ${row.NombreCliente}
+🧾 Factura: ${row.Factura || 'No - -'}
+💰 Saldo: ${fmt(row.SaldoXCobrarCliente)}
+————————————————————————————————————————————————————————————`}
+                                </div>
+                            ))}
+                        </div>
+                        <div style={{ fontWeight: 'bold', fontSize: '14px', marginTop: '4px' }}>
+                            {`📊 Total acumulado por cobrar: ${fmt(totalSaldo)}`}
+                        </div>
+                    </div>
+                )
+                break
+
+            case 'consultar_cobrar':
+                const totalACobrar = data.reduce((sum, row) => sum + (parseFloat(row.ValorXCobrarConIVA) || 0), 0)
+                const totalSaldoPendiente = data.reduce((sum, row) => sum + (parseFloat(row.SaldoXCobrarCliente) || 0), 0)
+                summaryPlain = `📈 Total a Cobrar: ${fmt(totalACobrar)} | 💼 Total Saldo Pendiente: ${fmt(totalSaldoPendiente)}`
+                summaryText = summaryPlain
                 break
 
             case 'prestamos':
                 const totalPrestado = data.reduce((sum, row) => sum + (parseFloat(row.CantidadPrestada) || 0), 0)
                 const totalDevuelto = data.reduce((sum, row) => sum + (parseFloat(row.CantidadDevuelta) || 0), 0)
-                summaryText = `📦 Prestado: ${totalPrestado} | ✅ Devuelto: ${totalDevuelto} | ⏳ Pendiente: ${totalPrestado - totalDevuelto}`
+                summaryPlain = `📦 Prestado: ${totalPrestado} | ✅ Devuelto: ${totalDevuelto} | ⏳ Pendiente: ${totalPrestado - totalDevuelto}`
+                summaryText = summaryPlain
                 break
 
             case 'devoluciones':
                 const totalDevoluciones = data.reduce((sum, row) => sum + (parseFloat(row.CantidadDevuelta) || 0), 0)
-                summaryText = `📥 Total Devoluciones: ${totalDevoluciones} unidades`
+                summaryPlain = `📥 Total Devoluciones: ${totalDevoluciones} unidades`
+                summaryText = summaryPlain
                 break
 
             case 'inventario':
                 const totalInventario = data.reduce((sum, row) => sum + (parseFloat(row.CantidadInventario) || 0), 0)
                 const totalVendido = data.reduce((sum, row) => sum + (parseFloat(row.CantidadVendida) || 0), 0)
-                summaryText = `📦 Stock Actual: ${totalInventario} | 🛒 Vendido: ${totalVendido}`
+                summaryPlain = `📦 Stock Actual: ${totalInventario} | 🛒 Vendido: ${totalVendido}`
+                summaryText = summaryPlain
                 break
 
             case 'consultor':
                 const totalComisionC = data.reduce((sum, row) => sum + (parseFloat(row.ComisionPorPagarConsultorTotal) || 0), 0)
                 const totalPagadoC = data.reduce((sum, row) => sum + (parseFloat(row.PagadoConsultor) || 0), 0)
                 const totalSaldoC = data.reduce((sum, row) => sum + (parseFloat(row.SaldoFinal) || 0), 0)
-                summaryText = `💼 Comisión Total: ${fmt(totalComisionC)} | ✅ Pagado: ${fmt(totalPagadoC)} | 💰 Saldo: ${fmt(totalSaldoC)}`
+                summaryPlain = `💼 Comisión Total: ${fmt(totalComisionC)} | ✅ Pagado: ${fmt(totalPagadoC)} | 💰 Saldo: ${fmt(totalSaldoC)}`
+                summaryText = summaryPlain
                 break
 
             case 'padre':
                 const totalComisionP = data.reduce((sum, row) => sum + (parseFloat(row.ComisionPorPagarPadreEmpresarialTotal) || 0), 0)
                 const totalPagadoP = data.reduce((sum, row) => sum + (parseFloat(row.PagadoPadreEmpresarial) || 0), 0)
                 const totalSaldoP = data.reduce((sum, row) => sum + (parseFloat(row.SaldoFinal) || 0), 0)
-                summaryText = `💼 Comisión Total: ${fmt(totalComisionP)} | ✅ Pagado: ${fmt(totalPagadoP)} | 💰 Saldo: ${fmt(totalSaldoP)}`
+                summaryPlain = `💼 Comisión Total: ${fmt(totalComisionP)} | ✅ Pagado: ${fmt(totalPagadoP)} | 💰 Saldo: ${fmt(totalSaldoP)}`
+                summaryText = summaryPlain
                 break
 
             default:
-                summaryText = `📊 Total de registros: ${data.length}`
-        }        setSummary(summaryText)
+                summaryPlain = `📊 Total de registros: ${data.length}`
+                summaryText = summaryPlain
+        }
+
+        setSummary(summaryText)
+        setSummaryString(summaryPlain)
     }
 
     const exportToCSV = () => {
@@ -322,10 +394,10 @@ export default function ReportesPage() {
             doc.text(`Fecha: ${new Date().toLocaleDateString('es-EC')}`, 14, 22)
 
             // Resumen (si existe)
-            if (summary) {
+            if (summaryString) {
                 doc.setFontSize(9)
                 doc.setTextColor(0, 100, 100)
-                const summaryLines = doc.splitTextToSize(summary, doc.internal.pageSize.width - 28)
+                const summaryLines = doc.splitTextToSize(summaryString, doc.internal.pageSize.width - 28)
                 doc.text(summaryLines, 14, 28)
                 doc.setTextColor(0, 0, 0)
             }
@@ -361,7 +433,7 @@ export default function ReportesPage() {
             autoTable(doc, {
                 head: headers,
                 body: body,
-                startY: summary ? 35 : 28,
+                startY: summaryString ? 35 : 28,
                 theme: 'striped',
                 headStyles: {
                     fillColor: [0, 212, 170],
@@ -471,7 +543,7 @@ export default function ReportesPage() {
                             className={`tab-btn${activeReport === r.key ? ' active' : ''}`}
                             onClick={() => {
                                 setActiveReport(r.key)
-                                setFilters({ fechaInicio: '2025-01-01', fechaFin: today(), codigoProducto: '', proveedor: '', cliente: '', numeroOrden: '', ciudad: '' })
+                                setFilters({ fechaInicio: '2025-01-01', fechaFin: today(), codigoProducto: '', proveedor: '', cliente: '', numeroOrden: '', ciudad: '', consultor: '', padreEmpresarial: '', estadoCobro: 'todas' })
                                 setShowFilters(false)
                                 setFiltro('') // Limpiar búsqueda
                                 setData([]) // Limpiar datos anteriores
@@ -581,7 +653,7 @@ export default function ReportesPage() {
                                 )}
 
                                 {/* Filtro Cliente */}
-                                {['ordenes', 'prestamos', 'devoluciones', 'cobrar'].includes(report.key) && (
+                                {['ordenes', 'prestamos', 'devoluciones', 'cobrar', 'consultar_cobrar'].includes(report.key) && (
                                     <div className="field">
                                         <label>Cliente</label>
                                         <input
@@ -594,7 +666,7 @@ export default function ReportesPage() {
                                 )}
 
                                 {/* Filtro Número Orden */}
-                                {['ordenes', 'cobrar'].includes(report.key) && (
+                                {['ordenes', 'cobrar', 'consultar_cobrar'].includes(report.key) && (
                                     <div className="field">
                                         <label>N° Orden</label>
                                         <input
@@ -607,7 +679,7 @@ export default function ReportesPage() {
                                 )}
 
                                 {/* Filtro Ciudad */}
-                                {report.key === 'ordenes' && (
+                                {['ordenes', 'consultar_cobrar'].includes(report.key) && (
                                     <div className="field">
                                         <label>Ciudad</label>
                                         <input
@@ -616,6 +688,47 @@ export default function ReportesPage() {
                                             onChange={e => setFilters(prev => ({ ...prev, ciudad: e.target.value }))}
                                             placeholder="Nombre de la ciudad"
                                         />
+                                    </div>
+                                )}
+
+                                {/* Filtro Consultor */}
+                                {report.key === 'ordenes' && (
+                                    <div className="field">
+                                        <label>Consultor</label>
+                                        <input
+                                            type="text"
+                                            value={filters.consultor}
+                                            onChange={e => setFilters(prev => ({ ...prev, consultor: e.target.value }))}
+                                            placeholder="Nombre del consultor"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Filtro Padre Empresarial */}
+                                {report.key === 'ordenes' && (
+                                    <div className="field">
+                                        <label>Padre Empresarial</label>
+                                        <input
+                                            type="text"
+                                            value={filters.padreEmpresarial}
+                                            onChange={e => setFilters(prev => ({ ...prev, padreEmpresarial: e.target.value }))}
+                                            placeholder="Padre Empresarial"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Filtro Estado Cobro */}
+                                {report.key === 'consultar_cobrar' && (
+                                    <div className="field">
+                                        <label>Filtro Estado</label>
+                                        <select
+                                            value={filters.estadoCobro}
+                                            onChange={e => setFilters(prev => ({ ...prev, estadoCobro: e.target.value }))}
+                                        >
+                                            <option value="todas">Mostrar todas</option>
+                                            <option value="cobradas">Solo cobradas (Saldo = 0)</option>
+                                            <option value="por_cobrar">Por cobrar (Saldo &gt; 0)</option>
+                                        </select>
                                     </div>
                                 )}
                             </div>
@@ -627,7 +740,7 @@ export default function ReportesPage() {
                                 <button
                                     className="btn btn-secondary btn-sm"
                                     onClick={() => {
-                                        setFilters({ fechaInicio: '2025-01-01', fechaFin: today(), codigoProducto: '', proveedor: '', cliente: '', numeroOrden: '', ciudad: '' })
+                                        setFilters({ fechaInicio: '2025-01-01', fechaFin: today(), codigoProducto: '', proveedor: '', cliente: '', numeroOrden: '', ciudad: '', consultor: '', padreEmpresarial: '', estadoCobro: 'todas' })
                                         loadReport()
                                     }}
                                 >

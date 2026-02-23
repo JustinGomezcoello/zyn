@@ -5,6 +5,7 @@ import {
     Trash2, Edit3, Download, Package
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
 import { D, calcularIVA, costoSinIVA, round2, fmt } from '../lib/businessLogic'
 
@@ -340,6 +341,128 @@ function ModalCambioProducto({ onClose, userId }: { onClose: () => void; userId:
     )
 }
 
+/* ─────────────────────────────────────────────────────────────────
+   MODAL: CONFIRMAR ELIMINACIÓN DE COMPRA (con validación de stock)
+───────────────────────────────────────────────────────────────── */
+function ModalConfirmarEliminarCompra({ compra, inv, onClose, onConfirm, userId }: {
+    compra: Compra; inv: any; onClose: () => void; onConfirm: (idsA_Eliminar: number[]) => void; userId: string
+}) {
+    const [ordenes, setOrdenes] = useState<any[]>([])
+    const [idOrdenInput, setIdOrdenInput] = useState('')
+    const [loading, setLoading] = useState(true)
+
+    const deficit = compra.CantidadComprada - (inv?.CantidadInventario ?? 0)
+    const hayConflicto = deficit > 0
+
+    useEffect(() => {
+        if (!hayConflicto) { setLoading(false); return }
+        supabase.from('orden_compra')
+            .select('id, NumOrdenCompra, CantidadVendida, FechaOrdenCompra, NombreCliente')
+            .eq('user_id', userId)
+            .eq('CodigoProducto', compra.CodigoProducto)
+            .order('id', { ascending: false })
+            .then(({ data }) => {
+                setOrdenes(data ?? [])
+                setLoading(false)
+            })
+    }, [hayConflicto, compra, userId])
+
+    const handleConfirm = () => {
+        if (!hayConflicto) return onConfirm([])
+
+        const ids = idOrdenInput.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
+        if (ids.length === 0) {
+            alert('Debe indicar cuáles ventas eliminar (IdOrdenCompra) separadas por coma.')
+            return
+        }
+
+        const ordenesSeleccionadas = ordenes.filter(o => ids.includes(o.id))
+        const faltantes = ids.filter(id => !ordenes.find(o => o.id === id))
+
+        if (faltantes.length > 0) {
+            alert(`Las siguientes IDs no existen o no corresponden a este producto: ${faltantes.join(', ')}`)
+            return
+        }
+
+        const sumLiberada = ordenesSeleccionadas.reduce((acc, o) => acc + (o.CantidadVendida || 0), 0)
+
+        if (sumLiberada < deficit) {
+            alert(`Las órdenes indicadas suman ${sumLiberada} uds, pero el déficit es de ${deficit} uds. Indique más órdenes.`)
+            return
+        }
+
+        onConfirm(ids)
+    }
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-box" style={{ maxWidth: 500 }} onClick={e => e.stopPropagation()}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                    <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Trash2 size={18} style={{ color: 'var(--accent-red)' }} /> Confirmar Eliminación
+                    </h3>
+                    <button className="btn btn-secondary btn-sm" onClick={onClose}><X size={14} /></button>
+                </div>
+
+                <div style={{ background: 'var(--bg-app)', padding: 16, borderRadius: 'var(--radius-md)', fontSize: 13, display: 'grid', gap: 6, marginBottom: 20, border: '1px solid var(--border)' }}>
+                    <div><strong>Fecha de Compra:</strong> {compra.FechaCompra}</div>
+                    <div><strong>Código Producto:</strong> <span className="badge badge-blue">{compra.CodigoProducto}</span></div>
+                    <div><strong>Nombre Producto:</strong> {compra.NombreProducto}</div>
+                    <div><strong>Cantidad Comprada:</strong> {compra.CantidadComprada}</div>
+                    <div><strong>Costo Sin IVA:</strong> {fmt(compra.CostoSinIVA)}</div>
+                    <div><strong>IVA:</strong> {fmt(compra.IVA)}</div>
+                    <div><strong>Costo Con IVA:</strong> <span style={{ color: 'var(--accent-teal)', fontWeight: 600 }}>{fmt(compra.CostoConIVA)}</span></div>
+                    <div><strong>Proveedor:</strong> {compra.Proveedor}</div>
+                </div>
+
+                {!hayConflicto ? (
+                    <div style={{ color: 'var(--text-secondary)', marginBottom: 20, fontSize: 13 }}>
+                        Esta compra restará <strong>{compra.CantidadComprada}</strong> unidades al inventario. No interfiere con ventas existentes.
+                    </div>
+                ) : (
+                    <div style={{ background: 'rgba(239, 68, 68, 0.08)', border: '1px solid rgba(239, 68, 68, 0.2)', padding: 16, borderRadius: 'var(--radius-md)', marginBottom: 20 }}>
+                        <div style={{ color: 'var(--accent-red)', fontWeight: 600, fontSize: 13, marginBottom: 12, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                            <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
+                            <div>El inventario no es suficiente para cubrir todas las órdenes de compra. Debe indicar cuáles ventas eliminar (IdOrdenCompra):</div>
+                        </div>
+
+                        {loading ? <div className="spinner" style={{ margin: '10px auto' }} /> : (
+                            <>
+                                <div className="field">
+                                    <label>IdOrdenCompra a eliminar (separe con comas)</label>
+                                    <input
+                                        value={idOrdenInput}
+                                        onChange={e => setIdOrdenInput(e.target.value)}
+                                        placeholder="Ej: 1, 2"
+                                        autoFocus
+                                    />
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 8 }}>
+                                    <strong style={{ display: 'block', marginBottom: 4 }}>Órdenes de Compras registradas ID: {ordenes.length} </strong>
+                                    {ordenes.length > 0 && (
+                                        <div style={{ maxHeight: 90, overflowY: 'auto' }}>
+                                            {ordenes.map(o => (
+                                                <div key={o.id}>• <strong>ID {o.id}</strong>: {o.CantidadVendida} uds (Vendida a: {o.NombreCliente})</div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            </>
+                        )}
+                    </div>
+                )}
+
+                <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 10 }}>
+                    <button className="btn btn-secondary" onClick={onClose} disabled={loading}>Cancelar</button>
+                    <button className="btn btn-danger" onClick={handleConfirm} disabled={loading}>
+                        <Trash2 size={14} /> Confirmar Eliminación
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 /* ═══════════════════════════════════════════════════════════════════
    PÁGINA PRINCIPAL — ComprasPage
 ═══════════════════════════════════════════════════════════════════ */
@@ -371,6 +494,7 @@ export default function ComprasPage() {
     const [prodSeleccionado, setProdSeleccionado] = useState<Producto | null>(null)
     const [showRegistrarCambio, setShowRegistrarCambio] = useState(false)
     const [showCambioHistorial, setShowCambioHistorial] = useState(false)
+    const [compraAEliminar, setCompraAEliminar] = useState<{ compra: Compra, inv: any } | null>(null)
 
     // Toast
     const [toast, setToast] = useState<{ type: string; text: string } | null>(null)
@@ -451,7 +575,7 @@ export default function ComprasPage() {
             showToast('success', `✅ Compra registrada: ${qty} × ${nombre || prod.NombreProducto}`)
             setCodigo(''); setNombre(''); setCantidad('1'); setProveedor(''); setFecha(today())
             loadCompras()
-        } catch (err: any) { showToast('error', `Error: ${err.message}`) }
+        } catch (err: any) { showToast('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 
@@ -460,7 +584,7 @@ export default function ComprasPage() {
         if (!idCompra.trim() || !user) { showToast('error', 'Ingrese un IdCompra válido.'); return }
         const { data } = await supabase.from('compras').select('*')
             .eq('user_id', user.id).eq('id', parseInt(idCompra)).single()
-        if (!data) { showToast('error', 'No se encontró compra con ese ID.'); return }
+        if (!data) { showToast('error', '❌ No se encontró ninguna compra registrada con el ID ingresado.'); return }
         setFecha(data.FechaCompra ?? today())
         setCodigo(data.CodigoProducto ?? '')
         setNombre(data.NombreProducto ?? '')
@@ -489,7 +613,7 @@ export default function ComprasPage() {
         const { error } = await supabase.from('compras')
             .update({ FechaCompra: fecha, Proveedor: proveedor.trim() })
             .eq('user_id', user.id).eq('id', parseInt(idCompra))
-        if (error) { showToast('error', `Error: ${error.message}`); return }
+        if (error) { showToast('error', getFriendlyErrorMessage(error)); return }
         showToast('success', 'Compra actualizada (Fecha y Proveedor).')
         loadCompras()
     }
@@ -500,22 +624,58 @@ export default function ComprasPage() {
         const { data: c } = await supabase.from('compras').select('*')
             .eq('user_id', user.id).eq('id', parseInt(idCompra)).single()
         if (!c) { showToast('error', 'Compra no encontrada.'); return }
-        if (!confirm(`¿Eliminar compra #${c.id}?\n${c.NombreProducto} — ${c.CantidadComprada} uds.`)) return
 
         const { data: inv } = await supabase.from('inventario_usuario')
-            .select('id, CantidadInicial, CantidadVendida, CantidadPrestada')
+            .select('id, CantidadInicial, CantidadVendida, CantidadPrestada, CantidadInventario')
             .eq('user_id', user.id).eq('CodigoProducto', c.CodigoProducto).single()
-        if (inv) {
-            const newInicial = Math.max(0, inv.CantidadInicial - c.CantidadComprada)
-            await supabase.from('inventario_usuario').update({
-                CantidadInicial: newInicial,
-                CantidadInventario: Math.max(0, newInicial - (inv.CantidadVendida ?? 0) - (inv.CantidadPrestada ?? 0))
-            }).eq('id', inv.id)
+
+        setCompraAEliminar({ compra: c as Compra, inv })
+    }
+
+    const confirmarEliminacionDefinitiva = async (idsOrdenesAEliminar: number[]) => {
+        if (!compraAEliminar || !user) return
+        const { compra: c, inv } = compraAEliminar
+        setCompraAEliminar(null) // cerrar modal al procesar
+
+        try {
+            // 1. Matar dependencias conflictivas (ordenes de compra pedidas por el usuario)
+            for (const idOrden of idsOrdenesAEliminar) {
+                const { data: orden } = await supabase.from('orden_compra')
+                    .select('NumOrdenCompra').eq('id', idOrden).single()
+
+                if (orden) {
+                    const num = orden.NumOrdenCompra
+                    // Si se anula la venta, ZYN anula también Cuentas x Pagar de esa factura.
+                    await supabase.from('cuentas_por_pagar_consultor').delete().eq('user_id', user.id).eq('NumOrdenCompra', num)
+                    await supabase.from('cuentas_por_pagar_padre_empresarial').delete().eq('user_id', user.id).eq('NumOrdenCompra', num)
+                    await supabase.from('orden_compra').delete().eq('id', idOrden)
+                }
+            }
+
+            // 2. Restaurar Stock (recalcular las ventas totales tras la purga)
+            const { data: ordenesRestantes } = await supabase.from('orden_compra')
+                .select('CantidadVendida').eq('user_id', user.id).eq('CodigoProducto', c.CodigoProducto)
+
+            const totalVendidoReal = (ordenesRestantes || []).reduce((acc, o) => acc + (o.CantidadVendida || 0), 0)
+
+            if (inv) {
+                const newInicial = Math.max(0, inv.CantidadInicial - c.CantidadComprada)
+                await supabase.from('inventario_usuario').update({
+                    CantidadInicial: newInicial,
+                    CantidadVendida: totalVendidoReal,
+                    CantidadInventario: Math.max(0, newInicial - totalVendidoReal - (inv.CantidadPrestada ?? 0))
+                }).eq('id', inv.id)
+            }
+
+            // 3. Matar la propia compra
+            await supabase.from('compras').delete().eq('id', c.id)
+
+            showToast('success', `Compra #${c.id} eliminada ${idsOrdenesAEliminar.length > 0 ? '(con dependencias restadas)' : ''}.`)
+            setIdCompra(''); setCodigo(''); setNombre(''); setCantidad('1'); setProveedor('')
+            loadCompras()
+        } catch (err: any) {
+            showToast('error', getFriendlyErrorMessage(err))
         }
-        await supabase.from('compras').delete().eq('id', c.id)
-        showToast('success', `Compra #${c.id} eliminada y stock restaurado.`)
-        setIdCompra(''); setCodigo(''); setNombre(''); setCantidad('1'); setProveedor('')
-        loadCompras()
     }
 
     /* ── Cambiar 1 producto ─────────────────────────────────────── */
@@ -580,7 +740,7 @@ export default function ComprasPage() {
             showToast('success', `✅ Cambio: ${codigoAct} → ${codigoNvo}`)
             setCodigoCambiar(''); setProdSeleccionado(null); setShowRegistrarCambio(false)
             loadCompras()
-        } catch (err: any) { showToast('error', `Error: ${err.message}`) }
+        } catch (err: any) { showToast('error', getFriendlyErrorMessage(err)) }
     }
 
     /* ── RENDER ─────────────────────────────────────────────────── */
@@ -783,6 +943,16 @@ export default function ComprasPage() {
 
             {showCambioHistorial && user && (
                 <ModalCambioProducto onClose={() => setShowCambioHistorial(false)} userId={user.id} />
+            )}
+
+            {compraAEliminar && user && (
+                <ModalConfirmarEliminarCompra
+                    compra={compraAEliminar.compra}
+                    inv={compraAEliminar.inv}
+                    userId={user.id}
+                    onClose={() => setCompraAEliminar(null)}
+                    onConfirm={confirmarEliminacionDefinitiva}
+                />
             )}
         </div>
     )

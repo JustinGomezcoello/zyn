@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback } from 'react'
 import { Search, Trash2, Edit, FileText, Download, X, DollarSign, Edit3, Check } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
 import { D, fmt } from '../lib/businessLogic'
 import Decimal from 'decimal.js'
@@ -49,7 +50,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
 
     // Configuration based on type
     const config = {
-        table: isConsultor ? 'cuentas_por_pagar_consultor' : 'cuentas_por_pagar_padre_empresarial',
+        table: isConsultor ? 'cuentas_pagar_consultor' : 'cuentas_pagar_padre',
         colId: isConsultor ? 'id' : 'id', // We use 'id' as PK in Supabase
         colOrder: 'NumOrdenCompra',
         colName: isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial',
@@ -95,7 +96,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
                 .eq('user_id', user.id)
                 .eq('NumOrdenCompra', searchOrder)
 
-            if (ocError || !ocData || ocData.length === 0) throw new Error('Orden no encontrada o sin datos.')
+            if (ocError || !ocData || ocData.length === 0) throw new Error(`No se encontró la Orden N° ${searchOrder} o no aplica para este usuario.`)
 
             const totalComision = ocData.reduce((sum, row) => sum.plus(D((row as any)[config.orderTableColComision] as number)), D(0))
             const nombre = (ocData[0] as any)[config.colName] || 'Desconocido'
@@ -125,7 +126,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
                 id: '' // Clear ID as we are in "Add" mode
             }))
         } catch (err: any) {
-            alert(err.message)
+            alert(getFriendlyErrorMessage(err))
             setFormData({ ...formData, nombre: '', porPagar: '' })
         } finally {
             setLoading(false)
@@ -172,7 +173,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             })
             setSearchOrder(String(numOrden)) // Set order number too
         } catch (err: any) {
-            alert(err.message)
+            alert(getFriendlyErrorMessage(err))
         } finally {
             setLoading(false)
         }
@@ -257,7 +258,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             setFormData(prev => ({ ...prev, valor: '', banco: '', cuenta: '', comprobante: '', id: '' }))
             searchOrderData() // Refresh view
         } catch (err: any) {
-            alert(err.message)
+            alert(getFriendlyErrorMessage(err))
         } finally {
             setLoading(false)
         }
@@ -281,7 +282,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             setFormData({ ...formData, id: '', valor: '', banco: '', cuenta: '', comprobante: '' })
             setSearchId('')
         } catch (err: any) {
-            alert(err.message)
+            alert(getFriendlyErrorMessage(err))
         } finally {
             setLoading(false)
         }
@@ -299,7 +300,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             setFormData({ ...formData, id: '', valor: '', banco: '', cuenta: '', comprobante: '' })
             setSearchId('')
         } catch (err: any) {
-            alert(err.message)
+            alert(getFriendlyErrorMessage(err))
         } finally {
             setLoading(false)
         }
@@ -495,10 +496,10 @@ function ReportModal({ type, onClose }: { type: 'consultor' | 'padre', onClose: 
 ${pendingOrders.join(', ') || 'Ninguna'}
 
 💰 Saldo total por pagar: ${fmt(totalPending)}
-            `)
+`)
 
         } catch (err: any) {
-            alert(err.message)
+            alert(getFriendlyErrorMessage(err))
         } finally {
             setIsLoading(false)
         }

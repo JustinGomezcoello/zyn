@@ -7,7 +7,7 @@ export default function SubscriptionLockScreen() {
     // Admin details according to requirements
     const adminName = "Justin Gomezcoello";
     const adminPhone = "5930980267544"; // For WA link
-    const waMessage = encodeURIComponent("Hola, se me acabó la licencia gratuita de 30 días en ZYN CLOUD. Deseo adquirir la licencia, ¿cómo funciona?");
+    const waMessage = encodeURIComponent("Hola, se me acabó la licencia gratuita de 30 días en ZYN. Deseo adquirir la licencia, ¿cómo funciona?");
 
     const waLink = `https://wa.me/${adminPhone}?text=${waMessage}`;
 
@@ -74,7 +74,7 @@ export default function SubscriptionLockScreen() {
                     </h2>
 
                     <p style={{ color: 'var(--text-secondary)', fontSize: 15, lineHeight: 1.6, margin: 0 }}>
-                        Tu período de prueba gratuito de 30 días ha finalizado. Para seguir utilizando <strong>ZYN CLOUD</strong> y todas sus herramientas sin interrupciones, necesitas adquirir la licencia.
+                        Tu período de prueba gratuito de 30 días ha finalizado. Para seguir utilizando <strong>ZYN</strong> y todas sus herramientas sin interrupciones, necesitas adquirir la licencia.
                     </p>
 
                     <div style={{

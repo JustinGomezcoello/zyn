@@ -4,6 +4,7 @@ import {
     Edit3, ClipboardList, AlertCircle, Package, User
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
 import {
     D, calcularBaseRetencion, calcularValorXCobrar,
@@ -213,7 +214,9 @@ export default function OrdenCompraPage() {
     const [telefono, setTelefono] = useState('')
     const [ciudad, setCiudad] = useState('')
     const [consultor, setConsultor] = useState('')
+    const [pctConsultorInput, setPctConsultorInput] = useState('20')
     const [padre, setPadre] = useState('')
+    const [pctPadreInput, setPctPadreInput] = useState('5')
     const [iva, setIva] = useState('15')
 
     /* ── Form producto (se limpia tras agregar) ─────────────────── */
@@ -308,10 +311,12 @@ export default function OrdenCompraPage() {
         const valorXCobrar = calcularValorXCobrar(baseRetencion, ivaDecimal)
         const valorCliente = precioConIva.times(cantDec)
 
-        const pctConsultor = consultor.trim() ? D('0.20') : D(0)
-        const comisionConsultor = consultor.trim() ? round2(calcularComisionConsultor(baseRetencion, D(20))) : D(0)
-        const pctPadre = padre.trim() ? D('0.05') : D(0)
-        const comisionPadre = padre.trim() ? round2(calcularComisionConsultor(baseRetencion, D(5))) : D(0)
+        const pctConsultorVal = D(pctConsultorInput || '0').div(100)
+        const pctConsultor = consultor.trim() ? pctConsultorVal : D(0)
+        const comisionConsultor = consultor.trim() ? round2(calcularComisionConsultor(baseRetencion, D(pctConsultorInput || '0'))) : D(0)
+        const pctPadreVal = D(pctPadreInput || '0').div(100)
+        const pctPadre = padre.trim() ? pctPadreVal : D(0)
+        const comisionPadre = padre.trim() ? round2(calcularComisionConsultor(baseRetencion, D(pctPadreInput || '0'))) : D(0)
 
         const nuevo: ProductoOrden = {
             NumOrdenCompra: numOrdenInt,
@@ -388,8 +393,8 @@ export default function OrdenCompraPage() {
                 ValorXCobrarConIVA: nuevoValorInd,
                 BaseRetencion: round2(nuevaBase),
                 ValorBaseRetencion: round2(nuevaBase.times(prod.PorcentajeIVA)),
-                ComisionPorPagarConsultor: prod.NombreConsultor ? round2(calcularComisionConsultor(nuevaBase, D(20))) : D(0),
-                ComisionPorPagarPadreEmpresarial: prod.NombrePadreEmpresarial ? round2(calcularComisionConsultor(nuevaBase, D(5))) : D(0),
+                ComisionPorPagarConsultor: prod.NombreConsultor ? round2(calcularComisionConsultor(nuevaBase, prod.PorcentajeComisionConsultor.times(100))) : D(0),
+                ComisionPorPagarPadreEmpresarial: prod.NombrePadreEmpresarial ? round2(calcularComisionConsultor(nuevaBase, prod.PorcentajePadreEmpresarial.times(100))) : D(0),
             }
         })
 
@@ -422,7 +427,7 @@ export default function OrdenCompraPage() {
                 ValorXCobrarConIVA: p.ValorXCobrarConIVA.toNumber(),
                 CostoConIVA: p.CostoConIVA.toNumber(),
             })
-            if (error) { showToast('error', `Error al guardar ${p.CodigoProducto}: ${error.message}`); return }
+            if (error) { showToast('error', `Error al guardar ${p.CodigoProducto}: ${getFriendlyErrorMessage(error)}`); return }
 
             // Actualizar inventario usuario
             const { data: inv } = await supabase.from('inventario_usuario')
@@ -462,6 +467,7 @@ export default function OrdenCompraPage() {
         setShowConfirmar(false)
         setNumOrden(''); setFechaOrden(today()); setNombreCliente(''); setTelefono('')
         setCiudad(''); setConsultor(''); setPadre(''); setIva('15')
+        setPctConsultorInput('20'); setPctPadreInput('5')
         setCodigoProd(''); setNombreProd(''); setCantidadVendida('')
         showToast('success', `✅ Orden Nº ${productosMod[0]?.NumOrdenCompra} confirmada con ${productosMod.length} producto(s).`)
     }
@@ -471,14 +477,16 @@ export default function OrdenCompraPage() {
         if (!idOrden.trim() || !user) return showToast('error', 'Ingrese un IdOrdenCompra válido.')
         const { data } = await supabase.from('orden_compra').select('*')
             .eq('user_id', user.id).eq('id', parseInt(idOrden)).single()
-        if (!data) return showToast('error', 'No se encontró orden con ese ID.')
+        if (!data) return showToast('error', '❌ No se encontró ninguna Orden de Compra registrada con el ID ingresado.')
         setNumOrden(String(data.NumOrdenCompra ?? ''))
         setFechaOrden(data.FechaOrdenCompra ?? today())
         setNombreCliente(data.NombreCliente ?? '')
         setTelefono(data.Telefono ?? '')
         setCiudad(data.Ciudad ?? '')
         setConsultor(data.NombreConsultor ?? '')
+        setPctConsultorInput(data.PorcentajeComisionConsultor !== undefined && data.PorcentajeComisionConsultor !== null ? String(data.PorcentajeComisionConsultor * 100) : '20')
         setPadre(data.NombrePadreEmpresarial ?? '')
+        setPctPadreInput(data.PorcentajePadreEmpresarial !== undefined && data.PorcentajePadreEmpresarial !== null ? String(data.PorcentajePadreEmpresarial * 100) : '5')
         setIva(String(((data.PorcentajeIVA ?? 0.15) * 100).toFixed(2)))
         setCodigoProd(data.CodigoProducto ?? '')
         setNombreProd(data.NombreProducto ?? '')
@@ -508,7 +516,7 @@ export default function OrdenCompraPage() {
         const { error } = await supabase.from('orden_compra')
             .update({ FechaOrdenCompra: fechaOrden, NombreCliente: nombreCliente.trim(), Telefono: telefono.trim(), Ciudad: ciudad.trim() })
             .eq('user_id', user.id).eq('NumOrdenCompra', numOrdenCompra)
-        if (error) return showToast('error', `Error: ${error.message}`)
+        if (error) return showToast('error', getFriendlyErrorMessage(error))
 
         showToast('success', 'Orden actualizada (Fecha, Cliente, Teléfono, Ciudad).')
     }
@@ -620,12 +628,18 @@ export default function OrdenCompraPage() {
                                     <input value={ciudad} onChange={e => setCiudad(e.target.value)} placeholder="Guayaquil" />
                                 </div>
                                 <div className="field">
-                                    <label>👤 20% Consultor</label>
-                                    <input value={consultor} onChange={e => setConsultor(e.target.value)} placeholder="Nombre (opcional)" />
+                                    <label>👤 Consultor (%)</label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <input type="number" value={pctConsultorInput} onChange={e => setPctConsultorInput(e.target.value)} style={{ width: 64, textAlign: 'center' }} title="% de comisión" min="0" max="100" />
+                                        <input value={consultor} onChange={e => setConsultor(e.target.value)} placeholder="Nombre (opcional)" style={{ flex: 1 }} />
+                                    </div>
                                 </div>
                                 <div className="field">
-                                    <label>👤 5% Padre Empresarial</label>
-                                    <input value={padre} onChange={e => setPadre(e.target.value)} placeholder="Nombre (opcional)" />
+                                    <label>👤 P. Empresarial (%)</label>
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        <input type="number" value={pctPadreInput} onChange={e => setPctPadreInput(e.target.value)} style={{ width: 64, textAlign: 'center' }} title="% de comisión" min="0" max="100" />
+                                        <input value={padre} onChange={e => setPadre(e.target.value)} placeholder="Nombre (opcional)" style={{ flex: 1 }} />
+                                    </div>
                                 </div>
                                 <div className="field">
                                     <label>💲 IVA (%) *</label>

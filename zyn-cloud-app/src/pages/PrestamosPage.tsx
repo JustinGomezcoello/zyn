@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback } from 'react'
 import { Plus, Trash2, RefreshCw, Edit } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
 
 const today = () => new Date().toISOString().split('T')[0]
@@ -87,7 +88,7 @@ export default function PrestamosPage() {
         try {
             // Check inventory
             const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', pCodigo.trim().toUpperCase()).single()
-            if (!prod) throw new Error(`Producto "${pCodigo}" no existe.`)
+            if (!prod) throw new Error(`❌ El código de producto "${pCodigo}" no existe en el catálogo.`)
             if (qty > prod.CantidadInventario) throw new Error(`Stock insuficiente. Disponible: ${prod.CantidadInventario}`)
 
             // Update Product
@@ -111,7 +112,7 @@ export default function PrestamosPage() {
             showMsg('success', 'Préstamo registrado.')
             setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad('')
             loadData()
-        } catch (err: any) { showMsg('error', err.message) }
+        } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 
@@ -166,7 +167,7 @@ export default function PrestamosPage() {
             showMsg('success', 'Préstamo modificado.')
             setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad('')
             loadData()
-        } catch (err: any) { showMsg('error', err.message) }
+        } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 
@@ -194,7 +195,7 @@ export default function PrestamosPage() {
             showMsg('success', 'Préstamo eliminado.')
             setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad('')
             loadData()
-        } catch (err: any) { showMsg('error', err.message) }
+        } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 
@@ -211,7 +212,7 @@ export default function PrestamosPage() {
         setSaving(true)
         try {
             const { data: loan } = await supabase.from('prestamos').select('*').eq('id', pIdLoad).single()
-            if (!loan) throw new Error('Préstamo cargado ya no existe.')
+            if (!loan) throw new Error('❌ El préstamo consultado ya no existe en la base de datos.')
 
             if (qty > loan.CantidadPrestada) throw new Error(`Excede pendiente (${loan.CantidadPrestada}).`)
 
@@ -247,7 +248,7 @@ export default function PrestamosPage() {
             loadData()
             // Optional: Reload loan data to show updated balances
             cargarPrestamo()
-        } catch (err: any) { showMsg('error', err.message) }
+        } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 
@@ -312,7 +313,7 @@ export default function PrestamosPage() {
             showMsg('success', 'Devolución modificada.')
             setDOrdenCompra(''); setDCantidad(''); setDIdLoad('')
             loadData()
-        } catch (err: any) { showMsg('error', err.message) }
+        } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 
@@ -342,7 +343,7 @@ export default function PrestamosPage() {
             showMsg('success', 'Devolución eliminada.')
             setDOrdenCompra(''); setDCantidad(''); setDIdLoad('')
             loadData()
-        } catch (err: any) { showMsg('error', err.message) }
+        } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
 

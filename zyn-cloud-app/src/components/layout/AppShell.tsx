@@ -1,9 +1,10 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useTheme } from '../../contexts/ThemeContext'
 import {
     ShoppingCart, FileText, DollarSign, TrendingDown,
-    Package, BarChart2, LogOut
+    Package, BarChart2, LogOut, Sun, Moon
 } from 'lucide-react'
 
 const navItems = [
@@ -17,6 +18,7 @@ const navItems = [
 
 export default function AppShell({ children }: { children: React.ReactNode }) {
     const { user, signOut } = useAuth()
+    const { theme, toggleTheme } = useTheme()
     const navigate = useNavigate()
 
     const handleLogout = async () => {
@@ -50,6 +52,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                         <div className="user-chip-info">
                             <div className="user-chip-email">{user?.email}</div>
                         </div>
+                        <button className="btn-logout" onClick={toggleTheme} title={theme === 'light' ? 'Cambiar a modo oscuro' : 'Cambiar a modo claro'} style={{ marginRight: '4px' }}>
+                            {theme === 'light' ? <Moon size={15} /> : <Sun size={15} />}
+                        </button>
                         <button id="btn-logout" className="btn-logout" onClick={handleLogout} title="Cerrar sesión">
                             <LogOut size={15} />
                         </button>

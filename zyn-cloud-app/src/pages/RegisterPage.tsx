@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { Eye, EyeOff, UserPlus, CheckCircle } from 'lucide-react'
 
 export default function RegisterPage() {
@@ -21,11 +22,7 @@ export default function RegisterPage() {
         setLoading(true)
         const { error } = await signUp(email, password)
         if (error) {
-            if (error.includes('already registered')) {
-                setError('Este correo ya está registrado. Por favor inicia sesión.')
-            } else {
-                setError(error)
-            }
+            setError(getFriendlyErrorMessage(error))
         } else {
             setSuccess(true)
         }

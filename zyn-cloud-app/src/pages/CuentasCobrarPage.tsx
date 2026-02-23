@@ -4,6 +4,7 @@ import {
     AlertCircle, DollarSign, CreditCard, FileText
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
 import {
     D, calcularComisionTC, calcularIRF, calcularRetIVA,
@@ -378,7 +379,7 @@ export default function CuentasCobrarPage() {
         }
 
         const { error } = await supabase.from('cuentas_cobrar').insert(row)
-        if (error) return showToast('e', `Error: ${error.message}`)
+        if (error) return showToast('e', getFriendlyErrorMessage(error))
         showToast('s', `✅ Pago registrado para la orden #${numOrden}.`)
         setModal(null); resetOrden()
     }
@@ -388,7 +389,7 @@ export default function CuentasCobrarPage() {
         if (!idCuenta.trim() || !user) return showToast('e', 'Ingrese un IdCuenta válido.')
         const { data } = await supabase.from('cuentas_cobrar').select('*')
             .eq('user_id', user.id).eq('id', parseInt(idCuenta)).single()
-        if (!data) return showToast('e', 'No se encontró cuenta con ese ID.')
+        if (!data) return showToast('e', '❌ No se encontró ninguna Cuenta por Cobrar con el ID ingresado.')
         setEditData(data); setModal('edit')
     }
 
@@ -398,7 +399,7 @@ export default function CuentasCobrarPage() {
         if (!confirm(`¿Eliminar la cuenta con ID ${idCuenta}? Esta acción no se puede deshacer.`)) return
         const { error } = await supabase.from('cuentas_cobrar').delete()
             .eq('user_id', user.id).eq('id', parseInt(idCuenta))
-        if (error) return showToast('e', error.message)
+        if (error) return showToast('e', getFriendlyErrorMessage(error))
         showToast('s', `Cuenta #${idCuenta} eliminada.`); setIdCuenta('')
     }
 
@@ -675,7 +676,7 @@ function ModalEditCuenta({ data, customBanks, onClose, onSaved, userId }: {
             PorcentajeGanancia: costo.gt(0) ? round2(utilidad.div(costo).times(100)).toNumber() : 0,
         }).eq('user_id', userId).eq('id', data.id as number)
         setSaving(false)
-        if (error) return alert('Error: ' + error.message)
+        if (error) return alert(getFriendlyErrorMessage(error))
         onSaved()
     }
 

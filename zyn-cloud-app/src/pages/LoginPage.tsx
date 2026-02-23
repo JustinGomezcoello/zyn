@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { Eye, EyeOff, LogIn } from 'lucide-react'
 
 export default function LoginPage() {
@@ -18,7 +19,7 @@ export default function LoginPage() {
         setLoading(true)
         const { error } = await signIn(email, password)
         if (error) {
-            setError(error.includes('Invalid') ? 'Credenciales inválidas. Verifique su email y contraseña.' : error)
+            setError(getFriendlyErrorMessage(error))
         } else {
             navigate('/dashboard')
         }
