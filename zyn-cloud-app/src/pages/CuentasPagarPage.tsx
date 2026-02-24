@@ -3,6 +3,7 @@ import { Search, Trash2, Edit, FileText, Download, X, DollarSign, Edit3, Check }
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { usePersistentState } from '../hooks/usePersistentState'
 import { D, fmt } from '../lib/businessLogic'
 import Decimal from 'decimal.js'
 
@@ -67,11 +68,11 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
     }
 
     // States
-    const [searchOrder, setSearchOrder] = useState('')
-    const [searchId, setSearchId] = useState('')
+    const [searchOrder, setSearchOrder] = usePersistentState(`cxp_${type}_searchOrder`, '')
+    const [searchId, setSearchId] = usePersistentState(`cxp_${type}_searchId`, '')
 
     // Form Data
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = usePersistentState(`cxp_${type}_formData`, {
         nombre: '',
         porPagar: '',
         valor: '',
@@ -96,10 +97,14 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
                 .eq('user_id', user.id)
                 .eq('NumOrdenCompra', searchOrder)
 
-            if (ocError || !ocData || ocData.length === 0) throw new Error(`No se encontró la Orden N° ${searchOrder} o no aplica para este usuario.`)
+            if (ocError || !ocData || ocData.length === 0) throw new Error(`No se encontró la Orden de Compra N° ${searchOrder} en el sistema.`)
 
-            const totalComision = ocData.reduce((sum, row) => sum.plus(D((row as any)[config.orderTableColComision] as number)), D(0))
+            const totalComision = ocData.reduce((sum, row) => sum.plus(D((row as any)[config.orderTableColComision] as number || 0)), D(0))
             const nombre = (ocData[0] as any)[config.colName] || 'Desconocido'
+
+            if (totalComision.lte(0)) {
+                throw new Error(`La Orden N° ${searchOrder} existe, pero no tiene comisiones registradas para un ${isConsultor ? 'Consultor' : 'Padre Empresarial'}.`)
+            }
 
             // Get Total Paid from CuentasPorPagar table
             const { data: payData, error: payError } = await supabase
@@ -108,7 +113,10 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
                 .eq('user_id', user.id)
                 .eq('NumOrdenCompra', searchOrder)
 
-            if (payError) throw payError
+            if (payError) {
+                console.error("Schema Mismatch en tabla de pagos:", payError)
+                throw new Error("No se pudo cargar el historial de pagos para esta orden. Estructura de base de datos no configurada.")
+            }
 
             const totalPagado = (payData || []).reduce((sum, row) => sum.plus(D((row as any)[config.colPagado] as number)), D(0))
             const restante = totalComision.minus(totalPagado)
@@ -435,9 +443,9 @@ function ReportModal({ type, onClose }: { type: 'consultor' | 'padre', onClose: 
     const [isLoading, setIsLoading] = useState(false)
 
     // Filters
-    const [nameFilter, setNameFilter] = useState('')
-    const [dateStart, setDateStart] = useState('2025-01-01')
-    const [dateEnd, setDateEnd] = useState(today())
+    const [nameFilter, setNameFilter] = usePersistentState(`cxp_rep_${type}_name`, '')
+    const [dateStart, setDateStart] = usePersistentState(`cxp_rep_${type}_dateStart`, '2025-01-01')
+    const [dateEnd, setDateEnd] = usePersistentState(`cxp_rep_${type}_dateEnd`, today())
 
     const loadReport = useCallback(async () => {
         setIsLoading(true)

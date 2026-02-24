@@ -2,7 +2,8 @@
 import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, TrendingDown, Users, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
-import { fmt } from '../lib/businessLogic'
+import { usePersistentState } from '../hooks/usePersistentState'
+import { fmt, formatDate } from '../lib/businessLogic'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
@@ -25,7 +26,7 @@ const GLOBAL_REPORTS = ['productos']
 
 const REPORTS: ReportConfig[] = [
     { key: 'compras', label: 'Compras', icon: <ShoppingCart size={16} />, table: 'compras', cols: ['id', 'FechaCompra', 'CodigoProducto', 'NombreProducto', 'CantidadComprada', 'CostoSinIVA', 'PorcentajeIVA', 'IVA', 'CostoConIVA', 'Proveedor'], hasFilters: true },
-    { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['id', 'CodigoProducto', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario', 'created_at', 'updated_at'], hasFilters: true },
+    { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['id', 'CodigoProducto', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario'], hasFilters: true },
     { key: 'productos', label: 'Catálogo Global', icon: <Package size={16} />, table: 'productos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'Categoria', 'CostoConIVA', 'PvpSinIVA', 'CalculoIVA', 'PrecioVentaConIVA', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario', 'IVA'], hasFilters: true },
     { key: 'ordenes', label: 'Órdenes de Compra', icon: <FileText size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'FechaOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'NombreConsultor', 'PorcentajeComisionConsultor', 'ComisionPorPagarConsultor', 'NombrePadreEmpresarial', 'PorcentajePadreEmpresarial', 'ComisionPorPagarPadreEmpresarial', 'PorcentajeIVA', 'CodigoProducto', 'NombreProducto', 'CantidadVendida', 'PorcentajeDescuento', 'PrecioVentaConIVA', 'PVPSinIVA', 'ValorDescuento', 'BaseRetencion', 'ValorBaseRetencion', 'ValorCliente', 'ValorXCobrarConIVA', 'CostoConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
     { key: 'cobrar', label: 'Cuentas por Cobrar Pagadas', icon: <DollarSign size={16} />, table: 'cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'NombreCliente', 'TipoPagoEfecTrans', 'AbonoEfectivoTransferencia1', 'FechaPagadoEfectivo1', 'AbonoEfectivoTransferencia2', 'FechaPagadoEfectivo2', 'AbonoEfectivoTransferencia3', 'FechaPagadoEfectivo3', 'TotalEfectivo', 'Factura', 'NumeroFactura', 'IVAPagoEfectivoFactura', 'TipoPago2', 'ValorPagadoTarjeta2', 'Banco2', 'Lote2', 'FechaPagado2', 'PorcentajeComisionBanco2', 'ComisionTCFactura2', 'PorcentajeIRF2', 'IRF2', 'PorcentajeRetIVA2', 'RetIVAPagoTarjetaCredito2', 'TotalComisionBanco2', 'ValorNetoTC2', 'TipoPago3', 'ValorPagadoTarjeta3', 'Banco3', 'Lote3', 'FechaPagado3', 'PorcentajeComisionBanco3', 'ComisionTCFactura3', 'PorcentajeIRF3', 'IRF3', 'PorcentajeRetIVA3', 'RetIVAPagoTarjetaCredito3', 'TotalComisionBanco3', 'ValorNetoTC3', 'ComisionBancoTotales', 'TotalesValorNetoTC', 'ValorXCobrarConIVATotal', 'BaseRetencionTotal', 'SaldoXCobrarCliente', 'CostoConIVA', 'UtilidadDescontadoIVASRI', 'PorcentajeGanancia'], hasFilters: true },
@@ -38,12 +39,12 @@ const REPORTS: ReportConfig[] = [
 
 export default function ReportesPage() {
     const { user } = useAuth()
-    const [activeReport, setActiveReport] = useState(REPORTS[0].key)
+    const [activeReport, setActiveReport] = usePersistentState('rep_activeReport', REPORTS[0].key)
     const [data, setData] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
-    const [filtro, setFiltro] = useState('')
-    const [showFilters, setShowFilters] = useState(false)
-    const [filters, setFilters] = useState({
+    const [filtro, setFiltro] = usePersistentState('rep_filtro', '')
+    const [showFilters, setShowFilters] = usePersistentState('rep_showFilters', false)
+    const [filters, setFilters] = usePersistentState('rep_filters', {
         fechaInicio: '2025-01-01',
         fechaFin: today(),
         codigoProducto: '',
@@ -136,8 +137,29 @@ export default function ReportesPage() {
 
             if (error) throw error
 
-            setData(result || [])
-            calculateSummary(report.key, result || [])
+            let finalData = result || []
+
+            // FIX: Agrupar por NumOrdenCompra para no duplicar el SaldoXCobrarCliente visualmente
+            if (report.key === 'consultar_cobrar') {
+                const grouped = finalData.reduce((acc: any, row: any) => {
+                    const orderNum = row.NumOrdenCompra
+                    if (!acc[orderNum]) {
+                        acc[orderNum] = { ...row }
+                    } else {
+                        // Sumar el valor de los productos (ValorXCobrarConIVA), 
+                        // pero mantener intacto SaldoXCobrarCliente (porque es a nivel de orden)
+                        acc[orderNum].ValorXCobrarConIVA = (parseFloat(acc[orderNum].ValorXCobrarConIVA) || 0) + (parseFloat(row.ValorXCobrarConIVA) || 0)
+                    }
+                    return acc
+                }, {})
+                finalData = Object.values(grouped)
+
+                // Asegurarse de re-ordenar por NumOrdenCompra descendente después de agrupar
+                finalData.sort((a: any, b: any) => b.NumOrdenCompra - a.NumOrdenCompra)
+            }
+
+            setData(finalData)
+            calculateSummary(report.key, finalData)
         } catch (err: any) {
             console.error('Error loading report:', err)
             setData([])
@@ -172,11 +194,19 @@ export default function ReportesPage() {
                 break
 
             case 'ordenes':
+                const dedupOrdersMap = new Map()
+                data.forEach(row => {
+                    if (!dedupOrdersMap.has(row.NumOrdenCompra)) {
+                        dedupOrdersMap.set(row.NumOrdenCompra, row)
+                    }
+                })
+                const dedupOrders = Array.from(dedupOrdersMap.values())
+
                 const totalCantidadVendida = data.reduce((sum, row) => sum + (parseFloat(row.CantidadVendida) || 0), 0)
                 const totalValorCobrar = data.reduce((sum, row) => sum + (parseFloat(row.ValorXCobrarConIVA) || 0), 0)
-                const totalSaldoPorCobrar = data.reduce((sum, row) => sum + (parseFloat(row.SaldoXCobrarCliente) || 0), 0)
-                const totalConsultor = data.reduce((sum, row) => sum + (parseFloat(row.ComisionPorPagarConsultor) || 0), 0)
-                const totalPadre = data.reduce((sum, row) => sum + (parseFloat(row.ComisionPorPagarPadreEmpresarial) || 0), 0)
+                const totalSaldoPorCobrar = dedupOrders.reduce((sum, row: any) => sum + (parseFloat(row.SaldoXCobrarCliente) || 0), 0)
+                const totalConsultor = dedupOrders.reduce((sum, row: any) => sum + (parseFloat(row.ComisionPorPagarConsultor) || 0), 0)
+                const totalPadre = dedupOrders.reduce((sum, row: any) => sum + (parseFloat(row.ComisionPorPagarPadreEmpresarial) || 0), 0)
 
                 summaryPlain = `Totales del Rango de Fecha Seleccionado\nCantidad Vendida: ${totalCantidadVendida.toFixed(4)} | Valor por Cobrar con IVA: ${totalValorCobrar.toFixed(4)} | Saldo por Cobrar Total: ${totalSaldoPorCobrar.toFixed(4)} | Comisión Consultor: ${totalConsultor.toFixed(4)} | Comisión Padre Empresarial: ${totalPadre.toFixed(4)}`
 
@@ -322,11 +352,7 @@ export default function ReportesPage() {
 
                     // Formatear fechas
                     if (col.toLowerCase().includes('fecha') && val) {
-                        try {
-                            return new Date(val).toLocaleDateString('es-EC')
-                        } catch {
-                            return val
-                        }
+                        return formatDate(val)
                     }
 
                     // Mantener números como números para Excel
@@ -391,7 +417,7 @@ export default function ReportesPage() {
             // Fecha del reporte
             doc.setFontSize(10)
             doc.setFont('helvetica', 'normal')
-            doc.text(`Fecha: ${new Date().toLocaleDateString('es-EC')}`, 14, 22)
+            doc.text(`Fecha: ${formatDate(new Date())}`, 14, 22)
 
             // Resumen (si existe)
             if (summaryString) {
@@ -411,11 +437,7 @@ export default function ReportesPage() {
 
                     // Formatear valores
                     if (col.toLowerCase().includes('fecha') && val) {
-                        try {
-                            return new Date(val).toLocaleDateString('es-EC')
-                        } catch {
-                            return String(val)
-                        }
+                        return formatDate(val)
                     }
 
                     if ((col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') ||
@@ -493,11 +515,7 @@ export default function ReportesPage() {
         if (val == null) return ''
         if (typeof val === 'boolean') return val ? 'Sí' : 'No'
         if (col.toLowerCase().includes('fecha') && val) {
-            try {
-                return new Date(val).toLocaleDateString('es-EC')
-            } catch {
-                return val
-            }
+            return formatDate(val)
         }
         if ((col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || col.toLowerCase().includes('valor') || col.toLowerCase().includes('comision') || col.includes('Pagado') || col.includes('Saldo') || col.includes('Utilidad') || col.toLowerCase().includes('iva')) && typeof val === 'number') {
             return fmt(val)

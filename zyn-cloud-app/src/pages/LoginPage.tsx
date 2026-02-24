@@ -31,7 +31,6 @@ export default function LoginPage() {
             <div className="auth-card">
                 <div className="auth-logo">
                     <h1>ZYN</h1>
-                    <p>Sistema de Gestión de Inventarios</p>
                 </div>
                 <h2 className="auth-title">Iniciar Sesión</h2>
                 {error && <div className="alert alert-error">{error}</div>}

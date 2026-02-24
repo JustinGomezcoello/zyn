@@ -6,6 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { usePersistentState } from '../hooks/usePersistentState'
 import {
     D, calcularBaseRetencion, calcularValorXCobrar,
     calcularComisionConsultor, fmt, round2
@@ -208,28 +209,54 @@ export default function OrdenCompraPage() {
     const { user } = useAuth()
 
     /* ── Form header (datos del cliente, fijos por toda la orden) ─ */
-    const [numOrden, setNumOrden] = useState('')
-    const [fechaOrden, setFechaOrden] = useState(today())
-    const [nombreCliente, setNombreCliente] = useState('')
-    const [telefono, setTelefono] = useState('')
-    const [ciudad, setCiudad] = useState('')
-    const [consultor, setConsultor] = useState('')
-    const [pctConsultorInput, setPctConsultorInput] = useState('20')
-    const [padre, setPadre] = useState('')
-    const [pctPadreInput, setPctPadreInput] = useState('5')
-    const [iva, setIva] = useState('15')
+    const [numOrden, setNumOrden] = usePersistentState('oc_numOrden', '')
+    const [fechaOrden, setFechaOrden] = usePersistentState('oc_fechaOrden', today())
+    const [nombreCliente, setNombreCliente] = usePersistentState('oc_nombreCliente', '')
+    const [telefono, setTelefono] = usePersistentState('oc_telefono', '')
+    const [ciudad, setCiudad] = usePersistentState('oc_ciudad', '')
+    const [consultor, setConsultor] = usePersistentState('oc_consultor', '')
+    const [pctConsultorInput, setPctConsultorInput] = usePersistentState('oc_pctConsultorInput', '20')
+    const [padre, setPadre] = usePersistentState('oc_padre', '')
+    const [pctPadreInput, setPctPadreInput] = usePersistentState('oc_pctPadreInput', '5')
+    const [iva, setIva] = usePersistentState('oc_iva', '15')
 
     /* ── Form producto (se limpia tras agregar) ─────────────────── */
-    const [codigoProd, setCodigoProd] = useState('')
+    const [codigoProd, setCodigoProd] = usePersistentState('oc_codigoProd', '')
     const [nombreProd, setNombreProd] = useState('')
-    const [cantidadVendida, setCantidadVendida] = useState('')
+    const [cantidadVendida, setCantidadVendida] = usePersistentState('oc_cantidadVendida', '')
 
     /* ── Cargar / Modificar / Eliminar ──────────────────────────── */
-    const [idOrden, setIdOrden] = useState('')
-    const [numOrdenElim, setNumOrdenElim] = useState('')
+    const [idOrden, setIdOrden] = usePersistentState('oc_idOrden', '')
+    const [numOrdenElim, setNumOrdenElim] = usePersistentState('oc_numOrdenElim', '')
 
     /* ── Estado ─────────────────────────────────────────────────── */
-    const [productosAgregados, setProductosAgregados] = useState<ProductoOrden[]>([])
+    const [productosAgregados, setProductosAgregados] = usePersistentState<ProductoOrden[]>('oc_productosAgregados', [], {
+        deserialize: (str) => {
+            try {
+                const arr = JSON.parse(str)
+                return arr.map((p: any) => ({
+                    ...p,
+                    PorcentajeComisionConsultor: new Decimal(p.PorcentajeComisionConsultor || 0),
+                    ComisionPorPagarConsultor: new Decimal(p.ComisionPorPagarConsultor || 0),
+                    PorcentajePadreEmpresarial: new Decimal(p.PorcentajePadreEmpresarial || 0),
+                    ComisionPorPagarPadreEmpresarial: new Decimal(p.ComisionPorPagarPadreEmpresarial || 0),
+                    PorcentajeIVA: new Decimal(p.PorcentajeIVA || 0),
+                    CantidadVendida: new Decimal(p.CantidadVendida || 0),
+                    PorcentajeDescuento: new Decimal(p.PorcentajeDescuento || 0),
+                    PrecioVentaConIVA: new Decimal(p.PrecioVentaConIVA || 0),
+                    PVPSinIVA: new Decimal(p.PVPSinIVA || 0),
+                    ValorDescuento: new Decimal(p.ValorDescuento || 0),
+                    BaseRetencion: new Decimal(p.BaseRetencion || 0),
+                    ValorBaseRetencion: new Decimal(p.ValorBaseRetencion || 0),
+                    ValorCliente: new Decimal(p.ValorCliente || 0),
+                    ValorXCobrarConIVA: new Decimal(p.ValorXCobrarConIVA || 0),
+                    CostoConIVA: new Decimal(p.CostoConIVA || 0),
+                }))
+            } catch {
+                return []
+            }
+        }
+    })
     const [buscandoNombre, setBuscandoNombre] = useState(false)
 
     /* ── Modales ────────────────────────────────────────────────── */

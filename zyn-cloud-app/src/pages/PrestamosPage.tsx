@@ -3,6 +3,7 @@ import { Plus, Trash2, RefreshCw, Edit } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { usePersistentState } from '../hooks/usePersistentState'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -23,22 +24,22 @@ export default function PrestamosPage() {
 
     // --- FORM VARIABLES (Single Source of Truth) ---
     // Prestamo Section
-    const [pCodigo, setPCodigo] = useState('')
+    const [pCodigo, setPCodigo] = usePersistentState('prest_pCodigo', '')
     const [pNombre, setPNombre] = useState('')
-    const [pCantidad, setPCantidad] = useState('')
-    const [pFecha, setPFecha] = useState(today())
-    const [pCliente, setPCliente] = useState('')
+    const [pCantidad, setPCantidad] = usePersistentState('prest_pCantidad', '')
+    const [pFecha, setPFecha] = usePersistentState('prest_pFecha', today())
+    const [pCliente, setPCliente] = usePersistentState('prest_pCliente', '')
 
     const [buscandoNombre, setBuscandoNombre] = useState(false)
 
-    const [pIdLoad, setPIdLoad] = useState('') // For loading/modifying existing loan
+    const [pIdLoad, setPIdLoad] = usePersistentState('prest_pIdLoad', '') // For loading/modifying existing loan
 
     // Devolucion Section
-    const [dOrdenCompra, setDOrdenCompra] = useState('')
-    const [dCantidad, setDCantidad] = useState('')
-    const [dFecha, setDFecha] = useState(today())
+    const [dOrdenCompra, setDOrdenCompra] = usePersistentState('prest_dOrdenCompra', '')
+    const [dCantidad, setDCantidad] = usePersistentState('prest_dCantidad', '')
+    const [dFecha, setDFecha] = usePersistentState('prest_dFecha', today())
 
-    const [dIdLoad, setDIdLoad] = useState('') // For loading/modifying existing devolution
+    const [dIdLoad, setDIdLoad] = usePersistentState('prest_dIdLoad', '') // For loading/modifying existing devolution
 
     // --- LOAD INITIAL DATA ---
     const loadData = useCallback(async () => {

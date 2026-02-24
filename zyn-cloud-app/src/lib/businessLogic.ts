@@ -125,3 +125,16 @@ export const BANKS_BY_TYPE: Record<string, string[]> = {
         'Ingresar Porcentaje Personalizado...',
     ],
 }
+
+/** 
+ * Estándar global de fechas: ISO 8601 (YYYY-MM-DD)
+ * Extrae la porción de fecha de cualquier timestamp o fecha cruda de Supabase/Postgres
+ * de forma 100% segura para evitar desfasajes horarios de `new Date()`.
+ */
+export function formatDate(dateStr: string | Date | null | undefined): string {
+    if (!dateStr) return '-'
+    if (typeof dateStr === 'object') {
+        return dateStr.toISOString().split('T')[0]
+    }
+    return dateStr.split('T')[0].split(' ')[0]
+}

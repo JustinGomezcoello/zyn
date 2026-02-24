@@ -6,6 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { usePersistentState } from '../hooks/usePersistentState'
 import {
     D, calcularComisionTC, calcularIRF, calcularRetIVA,
     calcularIVAPagoEfectivo, calcularUtilidad,
@@ -202,19 +203,28 @@ export default function CuentasCobrarPage() {
     const { user } = useAuth()
 
     /* ─ orden ─ */
-    const [numOrden, setNumOrden] = useState('')
-    const [ordenValidada, setOrdenValidada] = useState(false)
-    const [nombreCliente, setNombreCliente] = useState('')
-    const [totalOrden, setTotalOrden] = useState(new Decimal(0))
+    const [numOrden, setNumOrden] = usePersistentState('cxc_numOrden', '')
+    const [ordenValidada, setOrdenValidada] = usePersistentState('cxc_ordenValidada', false)
+    const [nombreCliente, setNombreCliente] = usePersistentState('cxc_nombreCliente', '')
+    const [totalOrden, setTotalOrden] = usePersistentState<Decimal>('cxc_totalOrden', new Decimal(0), {
+        deserialize: str => new Decimal(JSON.parse(str) || 0)
+    })
     const [loading, setLoading] = useState(false)
 
     /* ─ pagos locales ─ */
-    const [pagos, setPagos] = useState<PagoLocal[]>([])
-    const [nextId, setNextId] = useState(1)
+    const [pagos, setPagos] = usePersistentState<PagoLocal[]>('cxc_pagos', [], {
+        deserialize: str => {
+            try {
+                const arr = JSON.parse(str)
+                return arr.map((p: any) => ({ ...p, valor: new Decimal(p.valor || 0) }))
+            } catch { return [] }
+        }
+    })
+    const [nextId, setNextId] = usePersistentState('cxc_nextId', 1)
     const [customBanks, setCustomBanks] = useState<Record<string, Decimal>>({})
 
     /* ─ cargar/eliminar ─ */
-    const [idCuenta, setIdCuenta] = useState('')
+    const [idCuenta, setIdCuenta] = usePersistentState('cxc_idCuenta', '')
 
     /* ─ modales ─ */
     const [modal, setModal] = useState<null | 'ef' | 'tc' | 'confirm' | 'edit'>(null)

@@ -2,12 +2,16 @@
 import {
     Search, RefreshCw, X, Check, AlertCircle,
     ShoppingCart, Settings, ArrowLeftRight, History, List,
-    Trash2, Edit3, Download, Package
+    Trash2, Edit3, Download, Package, FileSpreadsheet
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import * as XLSX from 'xlsx'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
-import { D, calcularIVA, costoSinIVA, round2, fmt } from '../lib/businessLogic'
+import { usePersistentState } from '../hooks/usePersistentState'
+import { D, calcularIVA, costoSinIVA, round2, fmt, formatDate } from '../lib/businessLogic'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -293,6 +297,52 @@ function ModalCambioProducto({ onClose, userId }: { onClose: () => void; userId:
     }
     useEffect(() => { buscar() }, [])
 
+    const exportToExcel = () => {
+        if (rows.length === 0) return
+        try {
+            const wb = XLSX.utils.book_new()
+            const cols = ['ID', 'Código Anterior', 'Código Nuevo', 'Fecha Cambio', 'ID Compra']
+            const wsData = [cols, ...rows.map(r => [
+                r.id, r.CodigoProductoAnterior, r.CodigoProductoNuevo, r.FechaCambio, r.IdCompra || '—'
+            ])]
+            const ws = XLSX.utils.aoa_to_sheet(wsData)
+            ws['!cols'] = [{ wch: 10 }, { wch: 20 }, { wch: 20 }, { wch: 15 }, { wch: 15 }]
+            XLSX.utils.book_append_sheet(wb, ws, "Historial Cambios")
+            XLSX.writeFile(wb, `Historial_Cambio_Producto_${today()}.xlsx`)
+        } catch (error) {
+            console.error(error)
+            alert('Error al exportar a Excel')
+        }
+    }
+
+    const exportToPDF = () => {
+        if (rows.length === 0) return
+        try {
+            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+            doc.setFontSize(16)
+            doc.setFont('helvetica', 'bold')
+            doc.text('Historial de Cambio de Producto', 14, 15)
+            doc.setFontSize(10)
+            doc.setFont('helvetica', 'normal')
+            doc.text(`Fecha: ${formatDate(new Date())}`, 14, 22)
+
+            autoTable(doc, {
+                head: [['ID', 'Código Anterior', 'Código Nuevo', 'Fecha Cambio', 'ID Compra']],
+                body: rows.map(r => [r.id, r.CodigoProductoAnterior, r.CodigoProductoNuevo, r.FechaCambio, r.IdCompra || '—']),
+                startY: 28,
+                theme: 'striped',
+                headStyles: { fillColor: [0, 212, 170], textColor: [255, 255, 255], fontSize: 9, fontStyle: 'bold', halign: 'center' },
+                bodyStyles: { fontSize: 8, cellPadding: 2 },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+                margin: { top: 10, right: 10, bottom: 10, left: 10 }
+            })
+            doc.save(`Historial_Cambio_Producto_${today()}.pdf`)
+        } catch (error) {
+            console.error(error)
+            alert('Error al exportar a PDF')
+        }
+    }
+
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-box" style={{ maxWidth: 900, width: '94vw' }} onClick={e => e.stopPropagation()}>
@@ -300,7 +350,15 @@ function ModalCambioProducto({ onClose, userId }: { onClose: () => void; userId:
                     <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <History size={18} style={{ color: 'var(--accent-amber)' }} /> Historial de Cambio de Producto
                     </h3>
-                    <button className="btn btn-secondary btn-sm" onClick={onClose}><X size={14} /></button>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                        <button className="btn btn-success btn-sm" onClick={exportToExcel} disabled={rows.length === 0} title="Exportar a Excel">
+                            <FileSpreadsheet size={14} /> Excel
+                        </button>
+                        <button className="btn btn-success btn-sm" onClick={exportToPDF} disabled={rows.length === 0} title="Exportar a PDF">
+                            <Download size={14} /> PDF
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={onClose}><X size={14} /></button>
+                    </div>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px,1fr))', gap: 10, marginBottom: 16 }}>
                     <div className="field"><label>Código Anterior</label><input value={filtAnt} onChange={e => setFiltAnt(e.target.value)} /></div>
@@ -470,16 +528,16 @@ export default function ComprasPage() {
     const { user } = useAuth()
 
     // Form nueva compra
-    const [codigo, setCodigo] = useState('')
+    const [codigo, setCodigo] = usePersistentState('comp_codigo', '')
     const [nombre, setNombre] = useState('')
-    const [cantidad, setCantidad] = useState('1')
-    const [fecha, setFecha] = useState(today())
-    const [proveedor, setProveedor] = useState('')
+    const [cantidad, setCantidad] = usePersistentState('comp_cantidad', '1')
+    const [fecha, setFecha] = usePersistentState('comp_fecha', today())
+    const [proveedor, setProveedor] = usePersistentState('comp_proveedor', '')
     const [saving, setSaving] = useState(false)
     const [buscandoNombre, setBuscandoNombre] = useState(false)
 
     // Gestión por IdCompra
-    const [idCompra, setIdCompra] = useState('')
+    const [idCompra, setIdCompra] = usePersistentState('comp_idCompra', '')
 
     // Cambiar producto
     const [codigoCambiar, setCodigoCambiar] = useState('')
