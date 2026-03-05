@@ -16,10 +16,6 @@ export default function PrestamosPage() {
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'warning', text: string } | null>(null)
-
-    // Devolución Checkbox
-    const [devActive, setDevActive] = useState(false)
-
     // Data Lists
     const [prestamos, setPrestamos] = useState<any[]>([])
     const [devoluciones, setDevoluciones] = useState<any[]>([])
@@ -37,7 +33,7 @@ export default function PrestamosPage() {
     const [pIdLoad, setPIdLoad] = usePersistentState('prest_pIdLoad', '') // For loading/modifying existing loan
 
     // Devolucion Section
-    const [dOrdenCompra, setDOrdenCompra] = usePersistentState('prest_dOrdenCompra', '')
+    const [dIdPrestamo, setDIdPrestamo] = usePersistentState('prest_dIdPrestamo', '')
     const [dCantidad, setDCantidad] = usePersistentState('prest_dCantidad', '')
     const [dFecha, setDFecha] = usePersistentState('prest_dFecha', today())
 
@@ -114,7 +110,7 @@ export default function PrestamosPage() {
             })
 
             showMsg('success', 'Préstamo registrado.')
-            setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad('')
+            setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad(''); setPFecha(today())
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -207,10 +203,8 @@ export default function PrestamosPage() {
     }
 
     // --- DEVOLUCIONES ACTIONS ---
-
     const agregarDevolucion = async () => {
-        if (!devActive) return
-        if (!pIdLoad) return showMsg('error', 'Cargue un Préstamo (arriba) para asociar la devolución.')
+        if (!dIdPrestamo) return showMsg('error', 'Ingrese el IdPrestamo a devolver.')
         if (!dCantidad) return showMsg('error', 'Ingrese cantidad a devolver.')
 
         const qty = parseInt(dCantidad)
@@ -218,8 +212,8 @@ export default function PrestamosPage() {
 
         setSaving(true)
         try {
-            const { data: loan } = await supabase.from('prestamos').select('*').eq('id', pIdLoad).single()
-            if (!loan) throw new Error('❌ El préstamo consultado ya no existe en la base de datos.')
+            const { data: loan } = await supabase.from('prestamos').select('*').eq('id', dIdPrestamo).single()
+            if (!loan) throw new Error('❌ El IdPrestamo ingresado no existe o no corresponde a un préstamo válido.')
 
             if (qty > loan.CantidadPrestada) throw new Error(`Excede pendiente (${loan.CantidadPrestada}).`)
 
@@ -247,15 +241,13 @@ export default function PrestamosPage() {
                 NombreProducto: loan.NombreProducto,
                 CantidadDevuelta: qty,
                 FechaDevolucion: dFecha,
-                Cliente: loan.Cliente, // Keep client synced
-                OrdenCompra: dOrdenCompra
+                Cliente: loan.Cliente // Keep client synced
             })
 
             showMsg('success', 'Devolución registrada.')
-            setDOrdenCompra(''); setDCantidad(''); setDIdLoad('')
+            // Limpiar datos de devolución
+            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setDFecha(today())
             loadData()
-            // Optional: Reload loan data to show updated balances
-            cargarPrestamo()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
     }
@@ -264,21 +256,9 @@ export default function PrestamosPage() {
         if (!dIdLoad) return showMsg('error', 'Ingrese ID Devolución.')
         const { data } = await supabase.from('devoluciones').select('*').eq('id', dIdLoad).eq('user_id', user!.id).single()
         if (data) {
-            setDOrdenCompra(data.OrdenCompra ?? '')
+            setDIdPrestamo(String(data.IdPrestamo))
             setDCantidad(String(data.CantidadDevuelta))
             setDFecha(data.FechaDevolucion)
-            setDevActive(true) // Activate checkbox
-            // Also load the loan automatically to set context?
-            setPIdLoad(String(data.IdPrestamo))
-            // We can call cargarPrestamo() to sync context
-            const { data: loan } = await supabase.from('prestamos').select('*').eq('id', data.IdPrestamo).single()
-            if (loan) {
-                setPCodigo(loan.CodigoProducto)
-                setPNombre(loan.NombreProducto)
-                setPCantidad(String(loan.CantidadPrestadaTotal))
-                setPFecha(loan.FechaPrestamo)
-                setPCliente(loan.Cliente)
-            }
 
             showMsg('success', `Devolución cargada (ID P: ${data.IdPrestamo}).`)
         } else {
@@ -299,13 +279,13 @@ export default function PrestamosPage() {
 
             if (diff > 0 && diff > loan.CantidadPrestada) throw new Error('No hay suficiente saldo pendiente para incrementar devolución.')
 
-            // Logic to update products/loans same as before
-            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', loan.CodigoProducto).single()
-            if (prod) {
-                await supabase.from('productos').update({
-                    CantidadInventario: prod.CantidadInventario + diff,
-                    CantidadPrestada: prod.CantidadPrestada - diff
-                }).eq('id', prod.id)
+            // Update User Inventory
+            const { data: inv } = await supabase.from('inventario_usuario').select('*').eq('user_id', user!.id).eq('CodigoProducto', loan.CodigoProducto).single()
+            if (inv) {
+                await supabase.from('inventario_usuario').update({
+                    CantidadInventario: inv.CantidadInventario + diff,
+                    CantidadPrestada: Math.max(0, (inv.CantidadPrestada ?? 0) - diff)
+                }).eq('id', inv.id)
             }
             await supabase.from('prestamos').update({
                 CantidadPrestada: loan.CantidadPrestada - diff,
@@ -314,12 +294,11 @@ export default function PrestamosPage() {
 
             await supabase.from('devoluciones').update({
                 CantidadDevuelta: qty,
-                FechaDevolucion: dFecha,
-                OrdenCompra: dOrdenCompra
+                FechaDevolucion: dFecha
             }).eq('id', dIdLoad)
 
             showMsg('success', 'Devolución modificada.')
-            setDOrdenCompra(''); setDCantidad(''); setDIdLoad('')
+            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setDFecha(today());
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -333,13 +312,13 @@ export default function PrestamosPage() {
         try {
             const { data: dev } = await supabase.from('devoluciones').select('*').eq('id', dIdLoad).single()
             const { data: loan } = await supabase.from('prestamos').select('*').eq('id', dev.IdPrestamo).single()
-            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', dev.CodigoProducto).single()
+            const { data: inv } = await supabase.from('inventario_usuario').select('*').eq('user_id', user!.id).eq('CodigoProducto', dev.CodigoProducto).single()
 
-            if (prod) {
-                await supabase.from('productos').update({
-                    CantidadInventario: Math.max(0, prod.CantidadInventario - dev.CantidadDevuelta),
-                    CantidadPrestada: prod.CantidadPrestada + dev.CantidadDevuelta
-                }).eq('id', prod.id)
+            if (inv) {
+                await supabase.from('inventario_usuario').update({
+                    CantidadInventario: Math.max(0, inv.CantidadInventario - dev.CantidadDevuelta),
+                    CantidadPrestada: (inv.CantidadPrestada ?? 0) + dev.CantidadDevuelta
+                }).eq('id', inv.id)
             }
             if (loan) {
                 await supabase.from('prestamos').update({
@@ -350,7 +329,7 @@ export default function PrestamosPage() {
             await supabase.from('devoluciones').delete().eq('id', dIdLoad)
 
             showMsg('success', 'Devolución eliminada.')
-            setDOrdenCompra(''); setDCantidad(''); setDIdLoad('')
+            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setDFecha(today());
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -451,69 +430,57 @@ export default function PrestamosPage() {
                                 <span style={{ fontSize: 16 }}>📥</span>
                                 <span>Devolución</span>
                             </div>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={devActive}
-                                    onChange={e => setDevActive(e.target.checked)}
-                                    style={{ accentColor: 'var(--accent-green)', width: 16, height: 16 }}
-                                />
-                                <span style={{ fontSize: 13, fontWeight: 600, color: 'var(--text-secondary)' }}>Activar Devolución</span>
-                            </label>
                         </div>
 
-                        <div style={{
-                            display: 'flex', flexDirection: 'column', gap: 10, flex: 1,
-                            opacity: devActive ? 1 : 0.4, pointerEvents: devActive ? 'auto' : 'none', transition: 'opacity 0.2s'
-                        }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, flex: 1 }}>
                             <div className="field">
-                                <label>Orden de Compra</label>
-                                <input type="text" value={dOrdenCompra} onChange={e => setDOrdenCompra(e.target.value)} disabled={!devActive} />
+                                <label>🆔 IdPrestamo a Devolver</label>
+                                <input
+                                    type="text"
+                                    value={dIdPrestamo}
+                                    onChange={e => setDIdPrestamo(e.target.value)}
+                                    placeholder="Ej. 1"
+                                    disabled={!!dIdLoad} // Can't change the associated loan when modifying a dev
+                                />
                             </div>
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                                 <div className="field">
                                     <label>Cantidad Devolución</label>
-                                    <input type="number" value={dCantidad} onChange={e => setDCantidad(e.target.value)} disabled={!devActive} />
+                                    <input type="number" value={dCantidad} onChange={e => setDCantidad(e.target.value)} />
                                 </div>
                                 <div className="field">
                                     <label>Fecha Devolución</label>
-                                    <input type="date" value={dFecha} onChange={e => setDFecha(e.target.value)} disabled={!devActive} />
+                                    <input type="date" value={dFecha} onChange={e => setDFecha(e.target.value)} />
                                 </div>
                             </div>
                         </div>
 
-                        <div style={{
-                            marginTop: 16, marginBottom: 20,
-                            opacity: devActive ? 1 : 0.4, pointerEvents: devActive ? 'auto' : 'none', transition: 'opacity 0.2s'
-                        }}>
+                        <div style={{ marginTop: 16, marginBottom: 20 }}>
                             <button
                                 className="btn btn-success"
                                 style={{ width: '100%', background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontWeight: 700 }}
                                 onClick={agregarDevolucion}
-                                disabled={saving || !devActive || !!dIdLoad}
+                                disabled={saving || !!dIdLoad}
                             >
                                 <Plus size={14} /> Agregar Devolución
                             </button>
                         </div>
 
                         {/* ID Actions Bar (Dev) */}
-                        <div style={{
-                            borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 'auto',
-                            opacity: devActive ? 1 : 0.4, pointerEvents: devActive ? 'auto' : 'none', transition: 'opacity 0.2s'
-                        }}>
+                        <div style={{ borderTop: '1px solid var(--border)', paddingTop: 14, marginTop: 'auto' }}>
                             <div style={{ display: 'flex', gap: 8, alignItems: 'flex-end', flexWrap: 'wrap' }}>
                                 <div className="field" style={{ flex: 1, minWidth: 100 }}>
                                     <label>🆔 IdDevolución</label>
-                                    <input type="text" value={dIdLoad} onChange={e => setDIdLoad(e.target.value)} disabled={!devActive} placeholder="ID..." />
+                                    <input type="text" value={dIdLoad} onChange={e => setDIdLoad(e.target.value)} placeholder="ID..." />
                                 </div>
                                 <div className="btn-group" style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn btn-secondary" onClick={cargarDevolucion} disabled={loading || !devActive}>
+                                    <button className="btn btn-secondary" onClick={cargarDevolucion} disabled={loading}>
                                         <RefreshCw size={13} /> Cargar
                                     </button>
-                                    <button className="btn btn-primary" onClick={modificarDevolucion} disabled={saving || !devActive || !dIdLoad} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                                    <button className="btn btn-primary" onClick={modificarDevolucion} disabled={saving || !dIdLoad} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
                                         <Edit size={13} /> Modificar
                                     </button>
-                                    <button className="btn btn-danger" onClick={eliminarDevolucion} disabled={saving || !devActive || !dIdLoad}>
+                                    <button className="btn btn-danger" onClick={eliminarDevolucion} disabled={saving || !dIdLoad}>
                                         <Trash2 size={13} /> Eliminar
                                     </button>
                                 </div>
@@ -521,83 +488,83 @@ export default function PrestamosPage() {
                         </div>
                     </div>
                 </div>
+            </div>
 
-                {/* --- DATA SUMMARY TABLES --- */}
-                <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, marginTop: 20, alignItems: 'start' }}>
+            {/* --- DATA SUMMARY TABLES --- */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 20, marginTop: 20, alignItems: 'start' }}>
 
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        <div className="card-title" style={{ padding: '16px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-input)' }}>
-                            📋 Historial Préstamos
-                        </div>
-                        <div style={{ maxHeight: 350, overflowY: 'auto', padding: 10 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-                                <thead>
-                                    <tr style={{ color: 'var(--text-muted)' }}>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Fecha</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Prod</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Cant</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Pend</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {prestamos.map(p => (
-                                        <tr key={p.id} style={{ cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid var(--border)' }}
-                                            onClick={() => { setPIdLoad(String(p.id)); cargarPrestamo() }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <td style={{ padding: '8px 4px' }}>{p.id}</td>
-                                            <td style={{ padding: '8px 4px' }}>{p.FechaPrestamo}</td>
-                                            <td style={{ padding: '8px 4px' }}>{p.CodigoProducto}</td>
-                                            <td style={{ padding: '8px 4px' }}>{p.CantidadPrestadaTotal}</td>
-                                            <td style={{ padding: '8px 4px', color: p.CantidadPrestada > 0 ? 'var(--accent-amber)' : 'inherit', fontWeight: p.CantidadPrestada > 0 ? 'bold' : 'normal' }}>
-                                                {p.CantidadPrestada}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {prestamos.length === 0 && <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay préstamos registrados.</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="card-title" style={{ padding: '16px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-input)' }}>
+                        📋 Historial Préstamos
                     </div>
-
-                    <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-                        <div className="card-title" style={{ padding: '16px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-input)' }}>
-                            📋 Historial Devoluciones
-                        </div>
-                        <div style={{ maxHeight: 350, overflowY: 'auto', padding: 10 }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
-                                <thead>
-                                    <tr style={{ color: 'var(--text-muted)' }}>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Fecha</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID Pre</th>
-                                        <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Cant</th>
+                    <div style={{ maxHeight: 350, overflowY: 'auto', padding: 10 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ color: 'var(--text-muted)' }}>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Fecha</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Prod</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Cant</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Pend</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {prestamos.map(p => (
+                                    <tr key={p.id} style={{ cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid var(--border)' }}
+                                        onClick={() => { setPIdLoad(String(p.id)); cargarPrestamo() }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <td style={{ padding: '8px 4px' }}>{p.id}</td>
+                                        <td style={{ padding: '8px 4px' }}>{p.FechaPrestamo}</td>
+                                        <td style={{ padding: '8px 4px' }}>{p.CodigoProducto}</td>
+                                        <td style={{ padding: '8px 4px' }}>{p.CantidadPrestadaTotal}</td>
+                                        <td style={{ padding: '8px 4px', color: p.CantidadPrestada > 0 ? 'var(--accent-amber)' : 'inherit', fontWeight: p.CantidadPrestada > 0 ? 'bold' : 'normal' }}>
+                                            {p.CantidadPrestada}
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {devoluciones.map(d => (
-                                        <tr key={d.id} style={{ cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid var(--border)' }}
-                                            onClick={() => { setDIdLoad(String(d.id)); setDevActive(true); cargarDevolucion() }}
-                                            onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
-                                            onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
-                                        >
-                                            <td style={{ padding: '8px 4px' }}>{d.id}</td>
-                                            <td style={{ padding: '8px 4px' }}>{d.FechaDevolucion}</td>
-                                            <td style={{ padding: '8px 4px' }}>{d.IdPrestamo}</td>
-                                            <td style={{ padding: '8px 4px', color: 'var(--accent-green)', fontWeight: 'bold' }}>
-                                                {d.CantidadDevuelta}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {devoluciones.length === 0 && <tr><td colSpan={4} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay devoluciones registradas.</td></tr>}
-                                </tbody>
-                            </table>
-                        </div>
+                                ))}
+                                {prestamos.length === 0 && <tr><td colSpan={5} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay préstamos registrados.</td></tr>}
+                            </tbody>
+                        </table>
                     </div>
-
                 </div>
+
+                <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                    <div className="card-title" style={{ padding: '16px 16px', borderBottom: '1px solid var(--border)', background: 'var(--bg-input)' }}>
+                        📋 Historial Devoluciones
+                    </div>
+                    <div style={{ maxHeight: 350, overflowY: 'auto', padding: 10 }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, textAlign: 'left' }}>
+                            <thead>
+                                <tr style={{ color: 'var(--text-muted)' }}>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Fecha</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>ID Pre</th>
+                                    <th style={{ padding: '8px 4px', borderBottom: '1px solid var(--border)' }}>Cant</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {devoluciones.map(d => (
+                                    <tr key={d.id} style={{ cursor: 'pointer', transition: 'background 0.2s', borderBottom: '1px solid var(--border)' }}
+                                        onClick={() => { setDIdLoad(String(d.id)); cargarDevolucion() }}
+                                        onMouseEnter={e => e.currentTarget.style.background = 'var(--bg-input)'}
+                                        onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+                                    >
+                                        <td style={{ padding: '8px 4px' }}>{d.id}</td>
+                                        <td style={{ padding: '8px 4px' }}>{d.FechaDevolucion}</td>
+                                        <td style={{ padding: '8px 4px' }}>{d.IdPrestamo}</td>
+                                        <td style={{ padding: '8px 4px', color: 'var(--accent-green)', fontWeight: 'bold' }}>
+                                            {d.CantidadDevuelta}
+                                        </td>
+                                    </tr>
+                                ))}
+                                {devoluciones.length === 0 && <tr><td colSpan={4} style={{ padding: '16px', textAlign: 'center', color: 'var(--text-muted)' }}>No hay devoluciones registradas.</td></tr>}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
             </div>
         </div>
     )
