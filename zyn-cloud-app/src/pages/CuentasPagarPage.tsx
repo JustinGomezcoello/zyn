@@ -3,6 +3,7 @@ import { Search, Trash2, Edit, FileText, Download, X, DollarSign, Edit3, Check }
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { usePersistentState } from '../hooks/usePersistentState'
 import { D, fmt } from '../lib/businessLogic'
 import Decimal from 'decimal.js'
@@ -11,7 +12,7 @@ import Decimal from 'decimal.js'
 const today = () => new Date().toISOString().split('T')[0]
 
 export default function CuentasPagarPage() {
-    const [showReportType, setShowReportType] = useState<'consultor' | 'padre' | null>(null)
+    const [showModal, setShowModal] = useState<'mostrar_consultor' | 'mostrar_padre' | 'consultar_consultor' | 'consultar_padre' | null>(null)
 
     return (
         <div>
@@ -26,42 +27,50 @@ export default function CuentasPagarPage() {
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, alignItems: 'start' }}>
                     <PaymentSection
                         type="consultor"
-                        onShowReport={() => setShowReportType('consultor')}
+                        onShowMostrar={() => setShowModal('mostrar_consultor')}
+                        onShowConsultar={() => setShowModal('consultar_consultor')}
                     />
                     <PaymentSection
                         type="padre"
-                        onShowReport={() => setShowReportType('padre')}
+                        onShowMostrar={() => setShowModal('mostrar_padre')}
+                        onShowConsultar={() => setShowModal('consultar_padre')}
                     />
                 </div>
             </div>
 
-            {showReportType && (
-                <ReportModal
-                    type={showReportType}
-                    onClose={() => setShowReportType(null)}
+            {(showModal === 'mostrar_consultor' || showModal === 'mostrar_padre') && (
+                <MostrarPagosModal
+                    type={showModal === 'mostrar_consultor' ? 'consultor' : 'padre'}
+                    onClose={() => setShowModal(null)}
+                />
+            )}
+            {(showModal === 'consultar_consultor' || showModal === 'consultar_padre') && (
+                <ConsultarCxPModal
+                    type={showModal === 'consultar_consultor' ? 'consultor' : 'padre'}
+                    onClose={() => setShowModal(null)}
                 />
             )}
         </div>
     )
 }
 
-function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', onShowReport: () => void }) {
+function PaymentSection({ type, onShowMostrar, onShowConsultar }: { type: 'consultor' | 'padre', onShowMostrar: () => void, onShowConsultar: () => void }) {
     const { user } = useAuth()
+    const { toast, confirm } = useToast()
     const isConsultor = type === 'consultor'
 
-    // Configuration based on type
+    // Configuration based on type — UNIFIED column names for both tables
     const config = {
         table: isConsultor ? 'cuentas_pagar_consultor' : 'cuentas_pagar_padre',
-        colId: isConsultor ? 'id' : 'id', // We use 'id' as PK in Supabase
         colOrder: 'NumOrdenCompra',
         colName: isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial',
-        colComisionTotal: isConsultor ? 'ComisionPorPagarConsultorTotal' : 'ComisionPorPagarPadreEmpresarialTotal',
-        colPagado: isConsultor ? 'PagadoConsultor' : 'PagadoPadreEmpresarial',
-        colBanco: isConsultor ? 'BancoDistrConsultor' : 'BancoDistrPadreEmpresarial',
-        colCuenta: isConsultor ? 'CuentaDistrConsultor' : 'CuentaDistriPadreEmpresarial',
-        colFecha: isConsultor ? 'FechaPagoConsultor' : 'FechaPagoPadreEmpresarial',
+        colComisionTotal: 'ComisionPorPagarTotal',
+        colPagado: 'ValorPagado',
+        colBanco: 'Banco',
+        colCuenta: 'Cuenta',
+        colFecha: 'FechaPago',
         colComprobante: 'NumComprobante',
-        colSaldoPorPagar: isConsultor ? 'SaldoPorPagarConsultor' : 'SaldoPorPagarPadreEmpresarial',
+        colSaldoPorPagar: 'SaldoPorPagar',
         colSaldoFinal: 'SaldoFinal',
         orderTableColComision: isConsultor ? 'ComisionPorPagarConsultor' : 'ComisionPorPagarPadreEmpresarial',
         searchIdLabel: isConsultor ? 'Id Cuentas Por Pagar Consultor' : 'Id Cuentas Por Pagar Padre Empresarial'
@@ -87,7 +96,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
 
     // Search Order Logic
     const searchOrderData = async () => {
-        if (!searchOrder || !user) return alert('Ingrese un número de orden válido.')
+        if (!searchOrder || !user) return toast('Ingrese un número de orden válido.', 'warning')
         setLoading(true)
         try {
             // Get Total Commission and Name from OrdenCompra
@@ -126,15 +135,15 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
                 ...prev,
                 nombre,
                 porPagar: restante.toFixed(2),
-                valor: restante.toFixed(2), // Suggest full payment
+                valor: '',
                 banco: '',
                 cuenta: '',
-                fecha: today(),
+                fecha: '',
                 comprobante: '',
                 id: '' // Clear ID as we are in "Add" mode
             }))
         } catch (err: any) {
-            alert(getFriendlyErrorMessage(err))
+            toast(getFriendlyErrorMessage(err), 'error')
             setFormData({ ...formData, nombre: '', porPagar: '' })
         } finally {
             setLoading(false)
@@ -143,7 +152,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
 
     // Load Payment by ID Logic
     const loadPaymentById = async () => {
-        if (!searchId || !user) return alert('Ingrese un ID válido.')
+        if (!searchId || !user) return toast('Ingrese un ID válido.', 'warning')
         setLoading(true)
         try {
             const { data, error } = await supabase
@@ -181,7 +190,7 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             })
             setSearchOrder(String(numOrden)) // Set order number too
         } catch (err: any) {
-            alert(getFriendlyErrorMessage(err))
+            toast(getFriendlyErrorMessage(err), 'error')
         } finally {
             setLoading(false)
         }
@@ -218,15 +227,15 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
     }
 
     const confirmPayment = async () => {
-        if (!formData.valor || !formData.banco || !formData.cuenta || !formData.comprobante) return alert('Complete todos los campos.')
+        if (!formData.valor || !formData.banco || !formData.cuenta || !formData.comprobante) return toast('Complete todos los campos.', 'warning')
         const val = D(formData.valor)
-        if (val.lte(0)) return alert('El valor debe ser mayor a 0.')
+        if (val.lte(0)) return toast('El valor debe ser mayor a 0.', 'warning')
 
         // Check balance limit
         // Note: For adding new payment, we check if it exceeds formData.porPagar
         // But formData.porPagar might be stale if we didn't refresh. Assuming user just searched.
         if (!formData.id && val.gt(D(formData.porPagar))) {
-            return alert('El valor pagado excede el saldo por pagar.')
+            return toast('El valor pagado excede el saldo por pagar.', 'warning')
         }
 
         setLoading(true)
@@ -260,20 +269,20 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             })
 
             await recalcularSaldos(numOrden)
-            alert('Pago registrado correctamente.')
+            toast('Pago registrado correctamente.', 'success')
 
-            // Reset form
-            setFormData(prev => ({ ...prev, valor: '', banco: '', cuenta: '', comprobante: '', id: '' }))
-            searchOrderData() // Refresh view
+            // Reset ALL fields completely
+            setFormData({ nombre: '', porPagar: '', valor: '', banco: '', cuenta: '', fecha: '', comprobante: '', id: '' })
+            setSearchOrder('')
         } catch (err: any) {
-            alert(getFriendlyErrorMessage(err))
+            toast(getFriendlyErrorMessage(err), 'error')
         } finally {
             setLoading(false)
         }
     }
 
     const modifyPayment = async () => {
-        if (!formData.id) return alert('No hay pago seleccionado para modificar.')
+        if (!formData.id) return toast('No hay pago seleccionado para modificar.', 'warning')
         setLoading(true)
         try {
             await supabase.from(config.table).update({
@@ -286,29 +295,30 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
 
             const numOrden = parseInt(searchOrder) // Should be set from load
             await recalcularSaldos(numOrden)
-            alert('Pago modificado correctamente.')
+            toast('Pago modificado correctamente.', 'success')
             setFormData({ ...formData, id: '', valor: '', banco: '', cuenta: '', comprobante: '' })
             setSearchId('')
         } catch (err: any) {
-            alert(getFriendlyErrorMessage(err))
+            toast(getFriendlyErrorMessage(err), 'error')
         } finally {
             setLoading(false)
         }
     }
 
     const deletePayment = async () => {
-        if (!formData.id) return alert('No hay pago seleccionado para eliminar.')
-        if (!confirm('¿Está seguro de eliminar este pago?')) return
+        if (!formData.id) return toast('No hay pago seleccionado para eliminar.', 'warning')
+        const ok = await confirm({ title: 'Eliminar Pago', message: '¿Está seguro de eliminar este pago? Esta acción no se puede deshacer.' })
+        if (!ok) return
         setLoading(true)
         try {
             await supabase.from(config.table).delete().eq('id', formData.id).eq('user_id', user!.id)
             const numOrden = parseInt(searchOrder)
             await recalcularSaldos(numOrden)
-            alert('Pago eliminado correctamente.')
+            toast('Pago eliminado correctamente.', 'success')
             setFormData({ ...formData, id: '', valor: '', banco: '', cuenta: '', comprobante: '' })
             setSearchId('')
         } catch (err: any) {
-            alert(getFriendlyErrorMessage(err))
+            toast(getFriendlyErrorMessage(err), 'error')
         } finally {
             setLoading(false)
         }
@@ -426,8 +436,11 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
             {/* Sec: Reportes Locales */}
             <div className="card" style={{ background: 'rgba(56, 189, 248, 0.05)', borderColor: 'rgba(56, 189, 248, 0.2)' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                    <button className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(56, 189, 248, 0.3)', color: 'var(--accent-teal)' }} onClick={onShowReport}>
+                    <button className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(56, 189, 248, 0.3)', color: 'var(--accent-teal)' }} onClick={onShowMostrar}>
                         <FileText size={14} /> Mostrar Pagos a {isConsultor ? 'Consultores' : 'Padres Empresariales'}
+                    </button>
+                    <button className="btn btn-secondary" style={{ width: '100%', borderColor: 'rgba(168,85,247,0.3)', color: '#a855f7' }} onClick={onShowConsultar}>
+                        <Search size={14} /> Consultar Cuentas por Pagar {isConsultor ? 'Consultor' : 'Padre Empresarial'}
                     </button>
                 </div>
             </div>
@@ -435,184 +448,328 @@ function PaymentSection({ type, onShowReport }: { type: 'consultor' | 'padre', o
     )
 }
 
-function ReportModal({ type, onClose }: { type: 'consultor' | 'padre', onClose: () => void }) {
+/* ═══════════════════════════════════════════════════════════════════
+   MODAL 1: MOSTRAR PAGOS (detalle individual de pagos registrados)
+   Filtros: Nombre, Fecha Inicio, Fecha Fin
+   Columnas: Id, NumOrdenCompra, Nombre, ComisionTotal, ValorPagado,
+             Banco, Cuenta, FechaPago, NumComprobante, SaldoPorPagar, SaldoFinal
+═══════════════════════════════════════════════════════════════════ */
+function MostrarPagosModal({ type, onClose }: { type: 'consultor' | 'padre', onClose: () => void }) {
     const { user } = useAuth()
+    const { toast } = useToast()
     const isConsultor = type === 'consultor'
     const [payments, setPayments] = useState<any[]>([])
     const [summary, setSummary] = useState('')
     const [isLoading, setIsLoading] = useState(false)
 
-    // Filters
-    const [nameFilter, setNameFilter] = usePersistentState(`cxp_rep_${type}_name`, '')
-    const [dateStart, setDateStart] = usePersistentState(`cxp_rep_${type}_dateStart`, '2025-01-01')
-    const [dateEnd, setDateEnd] = usePersistentState(`cxp_rep_${type}_dateEnd`, today())
+    const [nameFilter, setNameFilter] = usePersistentState(`cxp_mostrar_${type}_name`, '')
+    const [dateStart, setDateStart] = usePersistentState(`cxp_mostrar_${type}_dateStart`, '2025-01-01')
+    const [dateEnd, setDateEnd] = usePersistentState(`cxp_mostrar_${type}_dateEnd`, today())
+
+    const table = isConsultor ? 'cuentas_pagar_consultor' : 'cuentas_pagar_padre'
+    const colName = isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial'
+    const colComisionOrden = isConsultor ? 'ComisionPorPagarConsultor' : 'ComisionPorPagarPadreEmpresarial'
+    const label = isConsultor ? 'Consultor' : 'Padre Empresarial'
 
     const loadReport = useCallback(async () => {
         setIsLoading(true)
         try {
-            const table = isConsultor ? 'cuentas_por_pagar_consultor' : 'cuentas_por_pagar_padre_empresarial'
-            const colName = isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial'
-            const colDate = isConsultor ? 'FechaPagoConsultor' : 'FechaPagoPadreEmpresarial'
-            const colPagado = isConsultor ? 'PagadoConsultor' : 'PagadoPadreEmpresarial'
-
             let query = supabase.from(table).select('*').eq('user_id', user!.id)
-                .gte(colDate, dateStart)
-                .lte(colDate, dateEnd)
-                .order(colDate, { ascending: true })
+                .gte('FechaPago', dateStart)
+                .lte('FechaPago', dateEnd)
+                .order('FechaPago', { ascending: true })
 
             const { data } = await query
             if (!data) return
 
-            // Filter by name in JS to support partial match if needed
-            const filtered = nameFilter ? data.filter(d => (d as any)[colName]?.toLowerCase().includes(nameFilter.toLowerCase())) : data
-
+            const filtered = nameFilter
+                ? data.filter(d => (d as any)[colName]?.toLowerCase().includes(nameFilter.toLowerCase()))
+                : data
             setPayments(filtered)
 
-            // Summary Calculation
+            // Calculate pending summary
             const { data: allOrders } = await supabase.from('orden_compra')
-                .select(`NumOrdenCompra, ${isConsultor ? 'ComisionPorPagarConsultor' : 'ComisionPorPagarPadreEmpresarial'}`)
-                .eq('user_id', user!.id)
+                .select(`NumOrdenCompra, ${colComisionOrden}`).eq('user_id', user!.id)
+            const { data: allPayments } = await supabase.from(table)
+                .select('NumOrdenCompra, ValorPagado').eq('user_id', user!.id)
 
-            const { data: allPayments } = await supabase.from(table).select(`NumOrdenCompra, ${colPagado}`).eq('user_id', user!.id)
-
-            const orderBalances: Record<string, Decimal> = {}
-
+            const balances: Record<string, Decimal> = {}
             allOrders?.forEach((o: any) => {
-                const num = o.NumOrdenCompra
-                const comm = D(o[isConsultor ? 'ComisionPorPagarConsultor' : 'ComisionPorPagarPadreEmpresarial'])
-                if (!orderBalances[num]) orderBalances[num] = D(0)
-                orderBalances[num] = orderBalances[num].plus(comm)
+                const n = String(o.NumOrdenCompra)
+                balances[n] = (balances[n] || D(0)).plus(D(o[colComisionOrden] ?? 0))
             })
-
             allPayments?.forEach((p: any) => {
-                const num = p.NumOrdenCompra
-                const paid = D(p[colPagado])
-                if (orderBalances[num]) orderBalances[num] = orderBalances[num].minus(paid)
+                const n = String(p.NumOrdenCompra)
+                if (balances[n]) balances[n] = balances[n].minus(D(p.ValorPagado ?? 0))
             })
 
             let totalPending = D(0)
             const pendingOrders: string[] = []
-            Object.entries(orderBalances).forEach(([num, bal]) => {
-                if (bal.gt(0.01)) {
-                    totalPending = totalPending.plus(bal)
-                    pendingOrders.push(num)
-                }
+            Object.entries(balances).forEach(([n, bal]) => {
+                if (bal.gt(0.01)) { totalPending = totalPending.plus(bal); pendingOrders.push(n) }
             })
 
-            setSummary(`
-📋 Números de Orden con saldo pendiente:
-${pendingOrders.join(', ') || 'Ninguna'}
-
-💰 Saldo total por pagar: ${fmt(totalPending)}
-`)
-
+            setSummary(`📋 Números de Orden de Compra con saldo pendiente:\n${pendingOrders.join(', ') || 'Ninguna'}\n\n💰 Saldo total por pagar a ${isConsultor ? 'consultores' : 'padres empresariales'}: ${fmt(totalPending)}`)
         } catch (err: any) {
-            alert(getFriendlyErrorMessage(err))
+            toast(getFriendlyErrorMessage(err), 'error')
         } finally {
             setIsLoading(false)
         }
-    }, [user, isConsultor, nameFilter, dateStart, dateEnd])
+    }, [user, table, colName, colComisionOrden, nameFilter, dateStart, dateEnd, isConsultor, toast])
 
     const downloadCSV = () => {
-        if (payments.length === 0) return alert('No hay datos para exportar.')
-
-        const headers = ['ID', 'NumOrdenCompra', 'Nombre', 'ComisionTotal', 'Pagado', 'Banco', 'Cuenta', 'FechaPago', 'Comprobante', 'SaldoPendiente', 'SaldoFinal']
-
+        if (payments.length === 0) return toast('No hay datos para exportar.', 'warning')
+        const headers = [`IdCuentasPorPagar${label.replace(' ', '')}`, 'NumOrdenCompra', `Nombre${label.replace(' ', '')}`, `ComisionPorPagar${label.replace(' ', '')}Total`, `Pagado${label.replace(' ', '')}`, `BancoDistr${label.replace(' ', '')}`, `CuentaDistr${label.replace(' ', '')}`, `FechaPago${label.replace(' ', '')}`, 'NumComprobante', `SaldoPorPagar${label.replace(' ', '')}`, 'SaldoFinal']
         const rows = payments.map(p => [
-            p.id,
-            p.NumOrdenCompra,
-            p[isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial'],
-            fmt(p[isConsultor ? 'ComisionPorPagarConsultorTotal' : 'ComisionPorPagarPadreEmpresarialTotal']).replace('$', '').replace(/,/g, ''),
-            fmt(p[isConsultor ? 'PagadoConsultor' : 'PagadoPadreEmpresarial']).replace('$', '').replace(/,/g, ''),
-            p[isConsultor ? 'BancoDistrConsultor' : 'BancoDistrPadreEmpresarial'],
-            p[isConsultor ? 'CuentaDistrConsultor' : 'CuentaDistriPadreEmpresarial'],
-            p[isConsultor ? 'FechaPagoConsultor' : 'FechaPagoPadreEmpresarial'],
-            p.NumComprobante,
-            fmt(p[isConsultor ? 'SaldoPorPagarConsultor' : 'SaldoPorPagarPadreEmpresarial']).replace('$', '').replace(/,/g, ''),
-            fmt(p.SaldoFinal).replace('$', '').replace(/,/g, '')
+            p.id, p.NumOrdenCompra, p[colName],
+            p.ComisionPorPagarTotal ?? '', p.ValorPagado ?? '',
+            p.Banco ?? '', p.Cuenta ?? '', p.FechaPago ?? '',
+            p.NumComprobante ?? '', p.SaldoPorPagar ?? '', p.SaldoFinal ?? ''
         ])
-
         const csvContent = [headers.join(';'), ...rows.map(e => e.join(';'))].join('\n')
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
         const url = URL.createObjectURL(blob)
         const link = document.createElement('a')
-        link.href = url
-        link.setAttribute('download', `reporte_pagos_${type}_${today()}.csv`)
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
+        link.href = url; link.download = `Lista_CuentasPorPagar_${type}_${today()}.csv`
+        document.body.appendChild(link); link.click(); document.body.removeChild(link)
     }
 
     useEffect(() => { loadReport() }, [loadReport])
 
     return (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-            <div className="bg-base-100 w-full max-w-5xl max-h-[90vh] rounded-lg shadow-xl flex flex-col" onClick={e => e.stopPropagation()}>
-                <div className="p-4 border-b border-base-300 flex justify-between items-center bg-base-200 rounded-t-lg">
-                    <h3 className="font-bold text-lg">Reporte de Pagos - {isConsultor ? 'Consultores' : 'Padres Empresariales'}</h3>
-                    <button onClick={onClose}><X size={20} /></button>
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-box" style={{ maxWidth: 1100, width: '96vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>📋 Lista de Cuentas por Pagar {label}</h3>
+                    <button className="btn btn-secondary btn-sm" onClick={onClose}><X size={14} /></button>
                 </div>
 
-                <div className="p-4 flex gap-4 bg-base-200 items-end flex-wrap">
-                    <div className="form-control">
-                        <label className="label-text text-xs mb-1">Nombre:</label>
-                        <input type="text" className="input input-sm border" value={nameFilter} onChange={e => setNameFilter(e.target.value)} />
+                {/* Filters */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="field" style={{ minWidth: 150 }}>
+                        <label style={{ fontSize: 11 }}>🔍 Nombre del {label}:</label>
+                        <input type="text" value={nameFilter} onChange={e => setNameFilter(e.target.value)} placeholder="Filtrar..." />
                     </div>
-                    <div className="form-control">
-                        <label className="label-text text-xs mb-1">Fecha Inicio:</label>
-                        <input type="date" className="input input-sm border" value={dateStart} onChange={e => setDateStart(e.target.value)} />
+                    <div className="field" style={{ minWidth: 130 }}>
+                        <label style={{ fontSize: 11 }}>📅 Fecha Inicio:</label>
+                        <input type="date" value={dateStart} onChange={e => setDateStart(e.target.value)} />
                     </div>
-                    <div className="form-control">
-                        <label className="label-text text-xs mb-1">Fecha Fin:</label>
-                        <input type="date" className="input input-sm border" value={dateEnd} onChange={e => setDateEnd(e.target.value)} />
+                    <div className="field" style={{ minWidth: 130 }}>
+                        <label style={{ fontSize: 11 }}>📅 Fecha Fin:</label>
+                        <input type="date" value={dateEnd} onChange={e => setDateEnd(e.target.value)} />
                     </div>
-                    <button onClick={loadReport} className="btn btn-sm btn-primary" disabled={isLoading}>
-                        <Search size={16} /> Consultar
+                    <button className="btn btn-success btn-sm" onClick={loadReport} disabled={isLoading}
+                        style={{ background: 'linear-gradient(135deg,#10b981,#059669)', border: 'none', color: '#fff', fontWeight: 700 }}>
+                        <Search size={13} /> Consultar
                     </button>
-                    <button onClick={downloadCSV} className="btn btn-sm btn-success text-white ml-auto" disabled={isLoading}>
-                        <Download size={16} /> Exportar CSV
+                    <button className="btn btn-secondary btn-sm" onClick={downloadCSV} disabled={isLoading} style={{ marginLeft: 'auto' }}>
+                        <Download size={13} /> CSV
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-auto p-4">
-                    <table className="table table-xs w-full">
+                {/* Table */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                         <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Orden</th>
-                                <th>Nombre</th>
-                                <th>Comisión Total</th>
-                                <th>Pagado</th>
-                                <th>Banco</th>
-                                <th>Cuenta</th>
-                                <th>Fecha</th>
-                                <th>Comprobante</th>
-                                <th>Saldo Pend.</th>
-                                <th>Saldo Final</th>
+                            <tr style={{ background: 'rgba(16,185,129,0.15)', position: 'sticky', top: 0 }}>
+                                {[`IdCuentasPorPagar${label.replace(' ', '')}`, 'NumOrdenCompra', `Nombre${label.replace(' ', '')}`, `ComisionPorPagar${label.replace(' ', '')}Total`, `Pagado${label.replace(' ', '')}`, `BancoDistr${label.replace(' ', '')}`, `CuentaDistr${label.replace(' ', '')}`, `FechaPago${label.replace(' ', '')}`, 'NumComprobante', `SaldoPorPagar${label.replace(' ', '')}`, 'SaldoFinal'
+                                ].map(h => <th key={h} style={{ padding: '8px 10px', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap', borderBottom: '2px solid var(--border)' }}>{h}</th>)}
                             </tr>
                         </thead>
                         <tbody>
                             {payments.map(p => (
-                                <tr key={p.id}>
-                                    <td>{p.id}</td>
-                                    <td>{p.NumOrdenCompra}</td>
-                                    <td>{p[isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial']}</td>
-                                    <td>{fmt(p[isConsultor ? 'ComisionPorPagarConsultorTotal' : 'ComisionPorPagarPadreEmpresarialTotal'])}</td>
-                                    <td>{fmt(p[isConsultor ? 'PagadoConsultor' : 'PagadoPadreEmpresarial'])}</td>
-                                    <td>{p[isConsultor ? 'BancoDistrConsultor' : 'BancoDistrPadreEmpresarial']}</td>
-                                    <td>{p[isConsultor ? 'CuentaDistrConsultor' : 'CuentaDistriPadreEmpresarial']}</td>
-                                    <td>{p[isConsultor ? 'FechaPagoConsultor' : 'FechaPagoPadreEmpresarial']}</td>
-                                    <td>{p.NumComprobante}</td>
-                                    <td>{fmt(p[isConsultor ? 'SaldoPorPagarConsultor' : 'SaldoPorPagarPadreEmpresarial'])}</td>
-                                    <td>{fmt(p.SaldoFinal)}</td>
+                                <tr key={p.id} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <td style={{ padding: '6px 10px' }}>{p.id}</td>
+                                    <td style={{ padding: '6px 10px' }}>{p.NumOrdenCompra}</td>
+                                    <td style={{ padding: '6px 10px' }}>{p[colName]}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmt(p.ComisionPorPagarTotal)}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmt(p.ValorPagado)}</td>
+                                    <td style={{ padding: '6px 10px' }}>{p.Banco}</td>
+                                    <td style={{ padding: '6px 10px' }}>{p.Cuenta}</td>
+                                    <td style={{ padding: '6px 10px' }}>{p.FechaPago}</td>
+                                    <td style={{ padding: '6px 10px' }}>{p.NumComprobante}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmt(p.SaldoPorPagar)}</td>
+                                    <td style={{ padding: '6px 10px', textAlign: 'right' }}>{fmt(p.SaldoFinal)}</td>
                                 </tr>
                             ))}
+                            {payments.length === 0 && (
+                                <tr><td colSpan={11} style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No se encontraron pagos registrados.</td></tr>
+                            )}
                         </tbody>
                     </table>
                 </div>
 
-                <div className="p-4 border-t border-base-300 bg-base-200">
-                    <pre className="text-sm font-mono whitespace-pre-wrap">{summary}</pre>
+                {/* Summary */}
+                <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+                    {summary || 'Cargando resumen...'}
+                </div>
+            </div>
+        </div>
+    )
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   MODAL 2: CONSULTAR CUENTAS POR PAGAR (resumen agregado por orden)
+   Filtros: Nombre, Estado (Todas / Pagadas / Por pagar)
+   Columnas: NumOrdenCompra, Nombre, ComisionTotal, Pagado, Saldo
+═══════════════════════════════════════════════════════════════════ */
+function ConsultarCxPModal({ type, onClose }: { type: 'consultor' | 'padre', onClose: () => void }) {
+    const { user } = useAuth()
+    const { toast } = useToast()
+    const isConsultor = type === 'consultor'
+    const [rows, setRows] = useState<any[]>([])
+    const [summaryText, setSummaryText] = useState('')
+    const [isLoading, setIsLoading] = useState(false)
+
+    const [nameFilter, setNameFilter] = usePersistentState(`cxp_consultar_${type}_name`, '')
+    const [estadoFilter, setEstadoFilter] = usePersistentState(`cxp_consultar_${type}_estado`, 'todas')
+
+    const colComisionOrden = isConsultor ? 'ComisionPorPagarConsultor' : 'ComisionPorPagarPadreEmpresarial'
+    const colName = isConsultor ? 'NombreConsultor' : 'NombrePadreEmpresarial'
+    const label = isConsultor ? 'Consultor' : 'Padre Empresarial'
+    const table = isConsultor ? 'cuentas_pagar_consultor' : 'cuentas_pagar_padre'
+
+    const loadReport = useCallback(async () => {
+        setIsLoading(true)
+        try {
+            // 1) Get all order commissions
+            const { data: orders } = await supabase.from('orden_compra')
+                .select(`NumOrdenCompra, ${colName}, ${colComisionOrden}`)
+                .eq('user_id', user!.id)
+
+            // 2) Get all payments totals
+            const { data: payments } = await supabase.from(table)
+                .select('NumOrdenCompra, ValorPagado')
+                .eq('user_id', user!.id)
+
+            // 3) Aggregate per order
+            const orderMap: Record<string, { name: string, comision: Decimal, pagado: Decimal }> = {}
+
+            orders?.forEach((o: any) => {
+                const n = String(o.NumOrdenCompra)
+                if (!orderMap[n]) orderMap[n] = { name: o[colName] || 'Desconocido', comision: D(0), pagado: D(0) }
+                orderMap[n].comision = orderMap[n].comision.plus(D(o[colComisionOrden] ?? 0))
+            })
+
+            payments?.forEach((p: any) => {
+                const n = String(p.NumOrdenCompra)
+                if (orderMap[n]) orderMap[n].pagado = orderMap[n].pagado.plus(D(p.ValorPagado ?? 0))
+            })
+
+            let aggregated = Object.entries(orderMap).map(([numOrden, v]) => ({
+                NumOrdenCompra: numOrden,
+                nombre: v.name,
+                comisionTotal: v.comision,
+                pagado: v.pagado,
+                saldo: v.comision.minus(v.pagado)
+            }))
+
+            // Filter by name
+            if (nameFilter) {
+                aggregated = aggregated.filter(r => r.nombre.toLowerCase().includes(nameFilter.toLowerCase()))
+            }
+
+            // Filter by estado
+            if (estadoFilter === 'pagadas') {
+                aggregated = aggregated.filter(r => r.saldo.lte(0.01))
+            } else if (estadoFilter === 'por_pagar') {
+                aggregated = aggregated.filter(r => r.saldo.gt(0.01))
+            }
+
+            setRows(aggregated)
+
+            // Build summary
+            const summaryLines: string[] = [`💰 SALDO POR PAGAR A ${isConsultor ? 'CONSULTORES' : 'PADRES EMPRESARIALES'}`, '']
+            let totalGeneral = D(0)
+
+            // Group by name for summary
+            const byName: Record<string, { orders: { num: string, comision: Decimal, pagado: Decimal, saldo: Decimal }[] }> = {}
+            aggregated.forEach(r => {
+                if (!byName[r.nombre]) byName[r.nombre] = { orders: [] }
+                byName[r.nombre].orders.push({ num: r.NumOrdenCompra, comision: r.comisionTotal, pagado: r.pagado, saldo: r.saldo })
+            })
+
+            Object.entries(byName).forEach(([name, data]) => {
+                summaryLines.push(`👤 ${name.toUpperCase()}`)
+                data.orders.forEach(o => {
+                    summaryLines.push(`  📦 Orden: ${o.num}`)
+                    summaryLines.push(`  💰 Comisión ${fmt(o.comision)} - 💳 Pagado ${fmt(o.pagado)} → 📋 Saldo ${fmt(o.saldo)}`)
+                    totalGeneral = totalGeneral.plus(o.saldo.gt(0) ? o.saldo : D(0))
+                })
+                summaryLines.push('')
+            })
+
+            summaryLines.push(`💰 Total General de Saldo: ${fmt(totalGeneral)}`)
+            setSummaryText(summaryLines.join('\n'))
+        } catch (err: any) {
+            toast(getFriendlyErrorMessage(err), 'error')
+        } finally {
+            setIsLoading(false)
+        }
+    }, [user, table, colName, colComisionOrden, nameFilter, estadoFilter, isConsultor, toast])
+
+    useEffect(() => { loadReport() }, [loadReport])
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal-box" style={{ maxWidth: 900, width: '94vw', maxHeight: '92vh', display: 'flex', flexDirection: 'column' }} onClick={e => e.stopPropagation()}>
+                {/* Header */}
+                <div style={{ padding: '16px 20px', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <h3 style={{ margin: 0, fontSize: 15, fontWeight: 700 }}>🔍 Consultar Cuentas por Pagar - {isConsultor ? 'Consultores' : 'Padres Empresariales'}</h3>
+                    <button className="btn btn-secondary btn-sm" onClick={onClose}><X size={14} /></button>
+                </div>
+
+                {/* Filters */}
+                <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border)', display: 'flex', gap: 12, alignItems: 'flex-end', flexWrap: 'wrap', background: 'rgba(255,255,255,0.02)' }}>
+                    <div className="field" style={{ minWidth: 150 }}>
+                        <label style={{ fontSize: 11 }}>🔍 Nombre del {label}:</label>
+                        <input type="text" value={nameFilter} onChange={e => setNameFilter(e.target.value)} placeholder="Filtrar..." />
+                    </div>
+                    <div className="field" style={{ minWidth: 150 }}>
+                        <label style={{ fontSize: 11 }}>⚙️ Estado:</label>
+                        <select value={estadoFilter} onChange={e => setEstadoFilter(e.target.value)}
+                            style={{ width: '100%', padding: '6px 8px', borderRadius: 6, border: '1px solid var(--border)', background: 'var(--bg-input)', color: 'var(--text-primary)', fontSize: 12 }}>
+                            <option value="todas">Mostrar todas</option>
+                            <option value="pagadas">Pagadas (Saldo = 0)</option>
+                            <option value="por_pagar">Por pagar (Saldo &gt; 0)</option>
+                        </select>
+                    </div>
+                    <button className="btn btn-success btn-sm" onClick={loadReport} disabled={isLoading}
+                        style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none', color: '#fff', fontWeight: 700 }}>
+                        <Search size={13} /> Consultar
+                    </button>
+                </div>
+
+                {/* Table */}
+                <div style={{ flex: 1, overflow: 'auto', padding: '0' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                        <thead>
+                            <tr style={{ background: 'rgba(59,130,246,0.15)', position: 'sticky', top: 0 }}>
+                                {['NumOrdenCompra', `Nombre${label.replace(' ', '')}`, 'ComisionTotal', 'Pagado', 'Saldo'
+                                ].map(h => <th key={h} style={{ padding: '8px 12px', fontWeight: 700, fontSize: 11, whiteSpace: 'nowrap', borderBottom: '2px solid var(--border)' }}>{h}</th>)}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((r, i) => (
+                                <tr key={i} style={{ borderBottom: '1px solid var(--border)' }}>
+                                    <td style={{ padding: '6px 12px' }}>{r.NumOrdenCompra}</td>
+                                    <td style={{ padding: '6px 12px' }}>{r.nombre}</td>
+                                    <td style={{ padding: '6px 12px', textAlign: 'right' }}>{fmt(r.comisionTotal)}</td>
+                                    <td style={{ padding: '6px 12px', textAlign: 'right' }}>{fmt(r.pagado)}</td>
+                                    <td style={{ padding: '6px 12px', textAlign: 'right', color: r.saldo.gt(0.01) ? '#ef4444' : '#10b981', fontWeight: 600 }}>{fmt(r.saldo)}</td>
+                                </tr>
+                            ))}
+                            {rows.length === 0 && (
+                                <tr><td colSpan={5} style={{ padding: 20, textAlign: 'center', color: 'var(--text-muted)', fontSize: 13 }}>No se encontraron registros.</td></tr>
+                            )}
+                        </tbody>
+                    </table>
+                </div>
+
+                {/* Summary */}
+                <div style={{ padding: '12px 20px', borderTop: '1px solid var(--border)', background: 'rgba(255,255,255,0.02)', fontSize: 12, lineHeight: 1.6, whiteSpace: 'pre-wrap', maxHeight: 180, overflow: 'auto' }}>
+                    {summaryText || 'Cargando resumen...'}
                 </div>
             </div>
         </div>

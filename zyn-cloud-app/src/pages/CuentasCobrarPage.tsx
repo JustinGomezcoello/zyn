@@ -6,6 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { usePersistentState } from '../hooks/usePersistentState'
 import {
     D, calcularComisionTC, calcularIRF, calcularRetIVA,
@@ -45,13 +46,14 @@ function ModalEfectivo({ restante, onAdd, onClose }: {
     onAdd: (valor: Decimal, fecha: string) => void
     onClose: () => void
 }) {
+    const { toast: t } = useToast()
     const [valor, setValor] = useState(restante.toFixed(2))
     const [fecha, setFecha] = useState(today())
 
     const submit = () => {
         const v = new Decimal(valor || '0')
-        if (v.lte(0)) return alert('El valor debe ser mayor a 0.')
-        if (v.gt(restante)) return alert(`Excede el restante: ${fmt(restante.toNumber())}`)
+        if (v.lte(0)) return t('El valor debe ser mayor a 0.', 'warning')
+        if (v.gt(restante)) return t(`Excede el restante: ${fmt(restante.toNumber())}`, 'warning')
         onAdd(v, fecha)
     }
     return (
@@ -85,6 +87,7 @@ function ModalTarjeta({ restante, customBanks, onAdd, onClose, onNewCustom }: {
     onClose: () => void
     onNewCustom: (name: string, pct: Decimal) => void
 }) {
+    const { toast: t } = useToast()
     const [tipo, setTipo] = useState<'Corriente' | 'Diferido'>('Corriente')
     const [banco, setBanco] = useState('')
     const [valor, setValor] = useState(restante.toFixed(2))
@@ -96,11 +99,11 @@ function ModalTarjeta({ restante, customBanks, onAdd, onClose, onNewCustom }: {
     const bancos = [...(BANKS_BY_TYPE[tipo] ?? []), ...Object.keys(customBanks).filter(k => k.startsWith('Personalizado'))]
 
     const submit = () => {
-        if (!banco) return alert('Seleccione un banco.')
+        if (!banco) return t('Seleccione un banco.', 'warning')
         const v = new Decimal(valor || '0')
-        if (v.lte(0)) return alert('El valor debe ser mayor a 0.')
-        if (v.gt(restante)) return alert(`Excede el restante: ${fmt(restante.toNumber())}`)
-        if (!lote.trim()) return alert('Ingrese el número de lote.')
+        if (v.lte(0)) return t('El valor debe ser mayor a 0.', 'warning')
+        if (v.gt(restante)) return t(`Excede el restante: ${fmt(restante.toNumber())}`, 'warning')
+        if (!lote.trim()) return t('Ingrese el número de lote.', 'warning')
         onAdd({ tipo: 'Tarjeta', valor: v, fecha, tipoBanco: tipo, banco, lote })
     }
 
@@ -140,7 +143,7 @@ function ModalTarjeta({ restante, customBanks, onAdd, onClose, onNewCustom }: {
                             <input type="number" value={pctStr} onChange={e => setPctStr(e.target.value)} step="0.01" /></div>
                         <button className="btn btn-primary btn-sm" style={{ marginTop: 6 }} onClick={() => {
                             const pct = parseFloat(pctStr)
-                            if (isNaN(pct) || pct <= 0 || pct >= 100) return alert('Porcentaje inválido (0-100).')
+                            if (isNaN(pct) || pct <= 0 || pct >= 100) return t('Porcentaje inválido (0-100).', 'warning')
                             const name = `Personalizado (${pct.toFixed(2)}%)`
                             onNewCustom(name, new Decimal(pct / 100))
                             setBanco(name); setShowPct(false)
@@ -165,11 +168,12 @@ function ModalConfirmar({ onConfirm, onClose }: {
     onConfirm: (factura: 'Sí' | 'No', numFactura: string) => Promise<void>
     onClose: () => void
 }) {
+    const { toast: t } = useToast()
     const [factura, setFactura] = useState<'Sí' | 'No'>('No')
     const [numFact, setNumFact] = useState('')
     const [saving, setSaving] = useState(false)
     const ok = async () => {
-        if (factura === 'Sí' && !numFact.trim()) return alert('Ingrese el número de factura.')
+        if (factura === 'Sí' && !numFact.trim()) return t('Ingrese el número de factura.', 'warning')
         setSaving(true); await onConfirm(factura, numFact); setSaving(false)
     }
     return (
@@ -201,6 +205,7 @@ function ModalConfirmar({ onConfirm, onClose }: {
 ═══════════════════════════════════════════════════════════════ */
 export default function CuentasCobrarPage() {
     const { user } = useAuth()
+    const { confirm: appConfirm } = useToast()
 
     /* ─ orden ─ */
     const [numOrden, setNumOrden] = usePersistentState('cxc_numOrden', '')
@@ -406,7 +411,8 @@ export default function CuentasCobrarPage() {
     /* ─ Eliminar CXC ─────────────────────────────────────────── */
     const eliminarCuenta = async () => {
         if (!idCuenta.trim() || !user) return showToast('e', 'Ingrese un IdCuenta.')
-        if (!confirm(`¿Eliminar la cuenta con ID ${idCuenta}? Esta acción no se puede deshacer.`)) return
+        const ok = await appConfirm({ title: 'Eliminar Cuenta', message: `¿Eliminar la cuenta con ID ${idCuenta}? Esta acción no se puede deshacer.` })
+        if (!ok) return
         const { error } = await supabase.from('cuentas_cobrar').delete()
             .eq('user_id', user.id).eq('id', parseInt(idCuenta))
         if (error) return showToast('e', getFriendlyErrorMessage(error))
@@ -606,6 +612,7 @@ function ModalEditCuenta({ data, customBanks, onClose, onSaved, userId }: {
     onSaved: () => void
     userId: string
 }) {
+    const { toast: t } = useToast()
     const n = (k: string) => Number(data[k] ?? 0)
     const s = (k: string, def = '') => String(data[k] ?? def)
     const [saving, setSaving] = useState(false)
@@ -686,7 +693,7 @@ function ModalEditCuenta({ data, customBanks, onClose, onSaved, userId }: {
             PorcentajeGanancia: costo.gt(0) ? round2(utilidad.div(costo).times(100)).toNumber() : 0,
         }).eq('user_id', userId).eq('id', data.id as number)
         setSaving(false)
-        if (error) return alert(getFriendlyErrorMessage(error))
+        if (error) return t(getFriendlyErrorMessage(error), 'error')
         onSaved()
     }
 

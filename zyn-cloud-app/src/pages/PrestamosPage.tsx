@@ -3,12 +3,14 @@ import { Plus, Trash2, RefreshCw, Edit } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { usePersistentState } from '../hooks/usePersistentState'
 
 const today = () => new Date().toISOString().split('T')[0]
 
 export default function PrestamosPage() {
     const { user } = useAuth()
+    const { confirm: appConfirm } = useToast()
 
     // --- STATE ---
     const [loading, setLoading] = useState(true)
@@ -87,22 +89,23 @@ export default function PrestamosPage() {
 
         setSaving(true)
         try {
-            // Check inventory
-            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', pCodigo.trim().toUpperCase()).single()
-            if (!prod) throw new Error(`❌ El código de producto "${pCodigo}" no existe en el catálogo.`)
-            if (qty > prod.CantidadInventario) throw new Error(`Stock insuficiente. Disponible: ${prod.CantidadInventario}`)
+            // Check inventory from user's own inventory
+            const { data: inv } = await supabase.from('inventario_usuario').select('*')
+                .eq('user_id', user.id).eq('CodigoProducto', pCodigo.trim().toUpperCase()).single()
+            if (!inv) throw new Error(`❌ El código de producto "${pCodigo}" no existe en su inventario.`)
+            if (qty > inv.CantidadInventario) throw new Error(`Stock insuficiente. Disponible: ${inv.CantidadInventario}`)
 
-            // Update Product
-            await supabase.from('productos').update({
-                CantidadInventario: prod.CantidadInventario - qty,
-                CantidadPrestada: (prod.CantidadPrestada ?? 0) + qty
-            }).eq('id', prod.id)
+            // Update user inventory
+            await supabase.from('inventario_usuario').update({
+                CantidadInventario: inv.CantidadInventario - qty,
+                CantidadPrestada: (inv.CantidadPrestada ?? 0) + qty
+            }).eq('id', inv.id)
 
             // Insert Loan
             await supabase.from('prestamos').insert({
                 user_id: user.id,
                 CodigoProducto: pCodigo.trim().toUpperCase(),
-                NombreProducto: pNombre || prod.NombreProducto,
+                NombreProducto: pNombre,
                 CantidadPrestadaTotal: qty,
                 CantidadPrestada: qty,
                 CantidadDevuelta: 0,
@@ -147,13 +150,14 @@ export default function PrestamosPage() {
 
             const diff = qty - oldLoan.CantidadPrestadaTotal
 
-            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', oldLoan.CodigoProducto).single()
-            if (prod) {
-                if (diff > 0 && diff > prod.CantidadInventario) throw new Error('Stock insuficiente.')
-                await supabase.from('productos').update({
-                    CantidadInventario: prod.CantidadInventario - diff,
-                    CantidadPrestada: prod.CantidadPrestada + diff
-                }).eq('id', prod.id)
+            const { data: inv } = await supabase.from('inventario_usuario').select('*')
+                .eq('user_id', user!.id).eq('CodigoProducto', oldLoan.CodigoProducto).single()
+            if (inv) {
+                if (diff > 0 && diff > inv.CantidadInventario) throw new Error('Stock insuficiente.')
+                await supabase.from('inventario_usuario').update({
+                    CantidadInventario: inv.CantidadInventario - diff,
+                    CantidadPrestada: (inv.CantidadPrestada ?? 0) + diff
+                }).eq('id', inv.id)
             }
 
             await supabase.from('prestamos').update({
@@ -174,7 +178,8 @@ export default function PrestamosPage() {
 
     const eliminarPrestamo = async () => {
         if (!pIdLoad) return showMsg('error', 'Cargue un préstamo para eliminar.')
-        if (!confirm('¿Eliminar préstamo?')) return
+        const ok = await appConfirm({ title: 'Eliminar Préstamo', message: '¿Está seguro de eliminar este préstamo?' })
+        if (!ok) return
 
         setSaving(true)
         try {
@@ -183,13 +188,14 @@ export default function PrestamosPage() {
             if (returns && returns.length > 0) throw new Error(`Existen devoluciones asociadas.`)
 
             const { data: loan } = await supabase.from('prestamos').select('*').eq('id', pIdLoad).single()
-            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', loan.CodigoProducto).single()
+            const { data: inv } = await supabase.from('inventario_usuario').select('*')
+                .eq('user_id', user!.id).eq('CodigoProducto', loan.CodigoProducto).single()
 
-            if (prod) {
-                await supabase.from('productos').update({
-                    CantidadInventario: prod.CantidadInventario + loan.CantidadPrestada,
-                    CantidadPrestada: Math.max(0, prod.CantidadPrestada - loan.CantidadPrestadaTotal)
-                }).eq('id', prod.id)
+            if (inv) {
+                await supabase.from('inventario_usuario').update({
+                    CantidadInventario: inv.CantidadInventario + loan.CantidadPrestada,
+                    CantidadPrestada: Math.max(0, (inv.CantidadPrestada ?? 0) - loan.CantidadPrestadaTotal)
+                }).eq('id', inv.id)
             }
             await supabase.from('prestamos').delete().eq('id', pIdLoad)
 
@@ -217,13 +223,14 @@ export default function PrestamosPage() {
 
             if (qty > loan.CantidadPrestada) throw new Error(`Excede pendiente (${loan.CantidadPrestada}).`)
 
-            // Update Product
-            const { data: prod } = await supabase.from('productos').select('*').eq('CodigoProducto', loan.CodigoProducto).single()
-            if (prod) {
-                await supabase.from('productos').update({
-                    CantidadInventario: prod.CantidadInventario + qty,
-                    CantidadPrestada: Math.max(0, prod.CantidadPrestada - qty)
-                }).eq('id', prod.id)
+            // Update User Inventory
+            const { data: inv } = await supabase.from('inventario_usuario').select('*')
+                .eq('user_id', user!.id).eq('CodigoProducto', loan.CodigoProducto).single()
+            if (inv) {
+                await supabase.from('inventario_usuario').update({
+                    CantidadInventario: inv.CantidadInventario + qty,
+                    CantidadPrestada: Math.max(0, (inv.CantidadPrestada ?? 0) - qty)
+                }).eq('id', inv.id)
             }
 
             // Update Loan
@@ -320,7 +327,8 @@ export default function PrestamosPage() {
 
     const eliminarDevolucion = async () => {
         if (!dIdLoad) return showMsg('error', 'Cargue devolución primero.')
-        if (!confirm('¿Eliminar devolución?')) return
+        const ok = await appConfirm({ title: 'Eliminar Devolución', message: '¿Está seguro de eliminar esta devolución?' })
+        if (!ok) return
         setSaving(true)
         try {
             const { data: dev } = await supabase.from('devoluciones').select('*').eq('id', dIdLoad).single()

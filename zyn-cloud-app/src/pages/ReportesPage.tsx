@@ -1,7 +1,8 @@
 ﻿import { useState, useCallback, useEffect } from 'react'
-import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, TrendingDown, Users, FileSpreadsheet } from 'lucide-react'
+import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, Users, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { usePersistentState } from '../hooks/usePersistentState'
 import { fmt, formatDate } from '../lib/businessLogic'
 import * as XLSX from 'xlsx'
@@ -31,14 +32,13 @@ const REPORTS: ReportConfig[] = [
     { key: 'ordenes', label: 'Órdenes de Compra', icon: <FileText size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'FechaOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'NombreConsultor', 'PorcentajeComisionConsultor', 'ComisionPorPagarConsultor', 'NombrePadreEmpresarial', 'PorcentajePadreEmpresarial', 'ComisionPorPagarPadreEmpresarial', 'PorcentajeIVA', 'CodigoProducto', 'NombreProducto', 'CantidadVendida', 'PorcentajeDescuento', 'PrecioVentaConIVA', 'PVPSinIVA', 'ValorDescuento', 'BaseRetencion', 'ValorBaseRetencion', 'ValorCliente', 'ValorXCobrarConIVA', 'CostoConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
     { key: 'cobrar', label: 'Cuentas por Cobrar Pagadas', icon: <DollarSign size={16} />, table: 'cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'NombreCliente', 'TipoPagoEfecTrans', 'AbonoEfectivoTransferencia1', 'FechaPagadoEfectivo1', 'AbonoEfectivoTransferencia2', 'FechaPagadoEfectivo2', 'AbonoEfectivoTransferencia3', 'FechaPagadoEfectivo3', 'TotalEfectivo', 'Factura', 'NumeroFactura', 'IVAPagoEfectivoFactura', 'TipoPago2', 'ValorPagadoTarjeta2', 'Banco2', 'Lote2', 'FechaPagado2', 'PorcentajeComisionBanco2', 'ComisionTCFactura2', 'PorcentajeIRF2', 'IRF2', 'PorcentajeRetIVA2', 'RetIVAPagoTarjetaCredito2', 'TotalComisionBanco2', 'ValorNetoTC2', 'TipoPago3', 'ValorPagadoTarjeta3', 'Banco3', 'Lote3', 'FechaPagado3', 'PorcentajeComisionBanco3', 'ComisionTCFactura3', 'PorcentajeIRF3', 'IRF3', 'PorcentajeRetIVA3', 'RetIVAPagoTarjetaCredito3', 'TotalComisionBanco3', 'ValorNetoTC3', 'ComisionBancoTotales', 'TotalesValorNetoTC', 'ValorXCobrarConIVATotal', 'BaseRetencionTotal', 'SaldoXCobrarCliente', 'CostoConIVA', 'UtilidadDescontadoIVASRI', 'PorcentajeGanancia'], hasFilters: true },
     { key: 'consultar_cobrar', label: 'Consultar Cuentas por Cobrar', icon: <DollarSign size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['NumOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'ValorXCobrarConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
-    { key: 'consultor', label: 'Pagos Consultor', icon: <TrendingDown size={16} />, table: 'cuentas_pagar_consultor', cols: ['id', 'NumOrdenCompra', 'NombreConsultor', 'ComisionPorPagar', 'Pagado', 'FechaOrdenCompra'], hasFilters: false },
-    { key: 'padre', label: 'Pagos Padre Empresarial', icon: <TrendingDown size={16} />, table: 'cuentas_pagar_padre', cols: ['id', 'NumOrdenCompra', 'NombrePadreEmpresarial', 'ComisionPorPagar', 'Pagado', 'FechaOrdenCompra'], hasFilters: false },
     { key: 'prestamos', label: 'Préstamos', icon: <Users size={16} />, table: 'prestamos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'CantidadPrestadaTotal', 'CantidadPrestada', 'CantidadDevuelta', 'FechaPrestamo', 'Cliente'], hasFilters: true },
     { key: 'devoluciones', label: 'Devoluciones', icon: <Users size={16} />, table: 'devoluciones', cols: ['id', 'IdPrestamo', 'CodigoProducto', 'NombreProducto', 'CantidadDevuelta', 'FechaDevolucion', 'Cliente'], hasFilters: true },
 ]
 
 export default function ReportesPage() {
     const { user } = useAuth()
+    const { toast } = useToast()
     const [activeReport, setActiveReport] = usePersistentState('rep_activeReport', REPORTS[0].key)
     const [data, setData] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
@@ -300,7 +300,7 @@ export default function ReportesPage() {
 
     const exportToCSV = () => {
         if (data.length === 0) {
-            alert('No hay datos para exportar')
+            toast('No hay datos para exportar', 'warning')
             return
         }
 
@@ -335,7 +335,7 @@ export default function ReportesPage() {
      */
     const exportToExcel = () => {
         if (filtered.length === 0) {
-            alert('No hay datos para exportar')
+            toast('No hay datos para exportar', 'warning')
             return
         }
 
@@ -387,7 +387,7 @@ export default function ReportesPage() {
             console.log(`✅ Archivo Excel exportado: ${fileName}`)
         } catch (error) {
             console.error('Error exportando a Excel:', error)
-            alert('Error al exportar a Excel: ' + (error as Error).message)
+            toast('Error al exportar a Excel: ' + (error as Error).message, 'error')
         }
     }
 
@@ -397,7 +397,7 @@ export default function ReportesPage() {
      */
     const exportToPDF = () => {
         if (filtered.length === 0) {
-            alert('No hay datos para exportar')
+            toast('No hay datos para exportar', 'warning')
             return
         }
 
@@ -507,7 +507,7 @@ export default function ReportesPage() {
             console.log(`✅ Archivo PDF exportado: ${fileName}`)
         } catch (error) {
             console.error('Error exportando a PDF:', error)
-            alert('Error al exportar a PDF: ' + (error as Error).message)
+            toast('Error al exportar a PDF: ' + (error as Error).message, 'error')
         }
     }
 

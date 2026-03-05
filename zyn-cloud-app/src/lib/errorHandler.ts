@@ -54,7 +54,4 @@ export function getFriendlyErrorMessage(error: any): string {
     return error.message || 'Error inesperado. Contacte a soporte si el problema persiste.';
 }
 
-export function handleAlertError(error: any) {
-    const friendlyMessage = getFriendlyErrorMessage(error);
-    alert(friendlyMessage);
-}
+// handleAlertError removed — use `toast(getFriendlyErrorMessage(err), 'error')` instead

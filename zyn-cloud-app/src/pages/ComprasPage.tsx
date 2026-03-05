@@ -10,6 +10,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { usePersistentState } from '../hooks/usePersistentState'
 import { D, calcularIVA, costoSinIVA, round2, fmt, formatDate } from '../lib/businessLogic'
 
@@ -228,8 +229,10 @@ function ModalRegistrarCambio({ codigoAnterior, productoNuevo, onConfirm, onClos
     const [proveedor, setProveedor] = useState('')
     const [saving, setSaving] = useState(false)
 
+    const { toast: t } = useToast()
+
     const handleConfirm = () => {
-        if (!proveedor.trim()) { alert('Ingrese el proveedor.'); return }
+        if (!proveedor.trim()) { t('Ingrese el proveedor.', 'warning'); return }
         setSaving(true)
         onConfirm(fechaCompra, fechaCambio, proveedor.trim())
     }
@@ -280,6 +283,7 @@ function ModalRegistrarCambio({ codigoAnterior, productoNuevo, onConfirm, onClos
    MODAL: HISTORIAL CAMBIO PRODUCTO
 ───────────────────────────────────────────────────────────────── */
 function ModalCambioProducto({ onClose, userId }: { onClose: () => void; userId: string }) {
+    const { toast: t } = useToast()
     const [rows, setRows] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
     const [filtAnt, setFiltAnt] = useState(''); const [filtNvo, setFiltNvo] = useState('')
@@ -311,7 +315,7 @@ function ModalCambioProducto({ onClose, userId }: { onClose: () => void; userId:
             XLSX.writeFile(wb, `Historial_Cambio_Producto_${today()}.xlsx`)
         } catch (error) {
             console.error(error)
-            alert('Error al exportar a Excel')
+            t('Error al exportar a Excel', 'error')
         }
     }
 
@@ -339,7 +343,7 @@ function ModalCambioProducto({ onClose, userId }: { onClose: () => void; userId:
             doc.save(`Historial_Cambio_Producto_${today()}.pdf`)
         } catch (error) {
             console.error(error)
-            alert('Error al exportar a PDF')
+            t('Error al exportar a PDF', 'error')
         }
     }
 
@@ -425,12 +429,14 @@ function ModalConfirmarEliminarCompra({ compra, inv, onClose, onConfirm, userId 
             })
     }, [hayConflicto, compra, userId])
 
+    const { toast: t } = useToast()
+
     const handleConfirm = () => {
         if (!hayConflicto) return onConfirm([])
 
         const ids = idOrdenInput.split(',').map(s => parseInt(s.trim())).filter(n => !isNaN(n))
         if (ids.length === 0) {
-            alert('Debe indicar cuáles ventas eliminar (IdOrdenCompra) separadas por coma.')
+            t('Debe indicar cuáles ventas eliminar (IdOrdenCompra) separadas por coma.', 'warning')
             return
         }
 
@@ -438,14 +444,14 @@ function ModalConfirmarEliminarCompra({ compra, inv, onClose, onConfirm, userId 
         const faltantes = ids.filter(id => !ordenes.find(o => o.id === id))
 
         if (faltantes.length > 0) {
-            alert(`Las siguientes IDs no existen o no corresponden a este producto: ${faltantes.join(', ')}`)
+            t(`Las siguientes IDs no existen o no corresponden a este producto: ${faltantes.join(', ')}`, 'warning')
             return
         }
 
         const sumLiberada = ordenesSeleccionadas.reduce((acc, o) => acc + (o.CantidadVendida || 0), 0)
 
         if (sumLiberada < deficit) {
-            alert(`Las órdenes indicadas suman ${sumLiberada} uds, pero el déficit es de ${deficit} uds. Indique más órdenes.`)
+            t(`Las órdenes indicadas suman ${sumLiberada} uds, pero el déficit es de ${deficit} uds. Indique más órdenes.`, 'warning')
             return
         }
 

@@ -6,6 +6,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { getFriendlyErrorMessage } from '../lib/errorHandler'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { usePersistentState } from '../hooks/usePersistentState'
 import {
     D, calcularBaseRetencion, calcularValorXCobrar,
@@ -143,14 +144,16 @@ function ModalConfirmarOrden({ productos, onConfirm, onClose }: {
     const [calculado, setCalculado] = useState(false)
     const [saving, setSaving] = useState(false)
 
+    const { toast: t } = useToast()
+
     const calcular = () => {
         try {
             const vc = new Decimal(valorStr || '0')
-            if (vc.lt(0)) { alert('El valor no puede ser negativo.'); return }
+            if (vc.lt(0)) { t('El valor no puede ser negativo.', 'warning'); return }
             const pct = vc.eq(0) ? new Decimal(100) : totalOriginal.minus(vc).div(totalOriginal).times(100)
             setDescPct(round2(pct.lt(0) ? new Decimal(0) : pct))
             setCalculado(true)
-        } catch { alert('Valor inválido.') }
+        } catch { t('Valor inválido.', 'warning') }
     }
 
     const handleConfirm = async () => {
@@ -207,6 +210,7 @@ function ModalConfirmarOrden({ productos, onConfirm, onClose }: {
 ═══════════════════════════════════════════════════════════════════ */
 export default function OrdenCompraPage() {
     const { user } = useAuth()
+    const { confirm: appConfirm } = useToast()
 
     /* ── Form header (datos del cliente, fijos por toda la orden) ─ */
     const [numOrden, setNumOrden] = usePersistentState('oc_numOrden', '')
@@ -555,7 +559,8 @@ export default function OrdenCompraPage() {
             .eq('user_id', user.id).eq('id', parseInt(idOrden)).single()
         if (!orden) return showToast('error', 'Orden no encontrada.')
 
-        if (!confirm(`¿Eliminar orden #${orden.id}?\nProducto: ${orden.CodigoProducto} — ${orden.CantidadVendida} uds\nEsto restaurará el inventario y eliminará cuentas por pagar asociadas.`)) return
+        const ok1 = await appConfirm({ title: 'Eliminar Orden', message: `¿Eliminar orden #${orden.id}?\nProducto: ${orden.CodigoProducto} — ${orden.CantidadVendida} uds\nEsto restaurará el inventario y eliminará cuentas por pagar asociadas.` })
+        if (!ok1) return
 
         // Restaurar inventario
         const { data: inv } = await supabase.from('inventario_usuario')
@@ -587,7 +592,8 @@ export default function OrdenCompraPage() {
             .eq('user_id', user.id).eq('NumOrdenCompra', numInt)
         if (!ordenes || ordenes.length === 0) return showToast('error', `No hay órdenes con número ${numOrdenElim}.`)
 
-        if (!confirm(`¿Eliminar TODAS las ${ordenes.length} línea(s) de la Orden Nº ${numOrdenElim}?\nProductos: ${ordenes.map(o => o.CodigoProducto).join(', ')}\nEsto restaurará el inventario y eliminará cuentas por pagar.`)) return
+        const ok2 = await appConfirm({ title: 'Eliminar Orden Completa', message: `¿Eliminar TODAS las ${ordenes.length} línea(s) de la Orden Nº ${numOrdenElim}?\nProductos: ${ordenes.map(o => o.CodigoProducto).join(', ')}\nEsto restaurará el inventario y eliminará cuentas por pagar.` })
+        if (!ok2) return
 
         for (const o of ordenes) {
             const { data: inv } = await supabase.from('inventario_usuario')
