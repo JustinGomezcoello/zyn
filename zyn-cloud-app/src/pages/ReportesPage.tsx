@@ -161,7 +161,7 @@ export default function ReportesPage() {
             setData(finalData)
             calculateSummary(report.key, finalData)
         } catch (err: any) {
-            console.error('Error loading report:', err)
+            console.error('Error al cargar reporte:', err)
             setData([])
         } finally {
             setLoading(false)
@@ -386,7 +386,7 @@ export default function ReportesPage() {
 
             console.log(`✅ Archivo Excel exportado: ${fileName}`)
         } catch (error) {
-            console.error('Error exportando a Excel:', error)
+            console.error('Error al exportar a Excel:', error)
             toast('Error al exportar a Excel: ' + (error as Error).message, 'error')
         }
     }
@@ -506,7 +506,7 @@ export default function ReportesPage() {
 
             console.log(`✅ Archivo PDF exportado: ${fileName}`)
         } catch (error) {
-            console.error('Error exportando a PDF:', error)
+            console.error('Error al exportar a PDF:', error)
             toast('Error al exportar a PDF: ' + (error as Error).message, 'error')
         }
     }
