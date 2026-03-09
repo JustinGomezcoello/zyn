@@ -32,7 +32,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <div className="app-shell">
             <aside className="sidebar">
                 <div className="sidebar-logo">
-                    <h1>ZYN</h1>
+                    <img src="/zyn.ico" alt="ZYN Logo" style={{ width: 56, height: 56, objectFit: 'contain', filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.3))' }} />
+                    <h1 style={{ marginTop: 8 }}>ZYN</h1>
                     <p>Gestión de Inventarios</p>
                 </div>
 

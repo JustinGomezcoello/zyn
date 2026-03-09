@@ -50,7 +50,8 @@ export default function RegisterPage() {
         <div className="auth-page">
             <div className="auth-card">
                 <div className="auth-logo">
-                    <h1>ZYN</h1>
+                    <img src="/zyn.ico" alt="ZYN Logo" style={{ width: 72, height: 72, objectFit: 'contain', marginBottom: 12, filter: 'drop-shadow(0 4px 8px rgba(0,0,0,0.4))' }} />
+                    <h1 style={{ marginTop: 0 }}>ZYN</h1>
                 </div>
                 <h2 className="auth-title">Crear Cuenta</h2>
                 {error && <div className="alert alert-error">{error}</div>}
