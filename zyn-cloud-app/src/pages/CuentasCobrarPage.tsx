@@ -504,12 +504,12 @@ export default function CuentasCobrarPage() {
                         {/* Cargar / Eliminar */}
                         <div className="card">
                             <div className="card-title" style={{ borderBottom: '1px solid var(--border)', paddingBottom: 10, marginBottom: 14 }}>
-                                <Edit3 size={15} style={{ color: 'var(--accent-amber)' }} /><span>Cargar · Eliminar Cuenta</span>
+                                <Edit3 size={15} style={{ color: 'var(--accent-amber)' }} /><span>Cargar · Eliminar Cuentas por Cobrar Pagadas</span>
                             </div>
                             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' }}>
-                                <div className="field" style={{ minWidth: 150 }}>
-                                    <label>🆔 IdCuenta</label>
-                                    <input type="number" value={idCuenta} onChange={e => setIdCuenta(e.target.value)} placeholder="ID de la cuenta" />
+                                <div className="field" style={{ minWidth: 200, flex: 1 }}>
+                                    <label>🆔 Id de Cuentas por Cobrar Pagadas</label>
+                                    <input type="number" value={idCuenta} onChange={e => setIdCuenta(e.target.value)} placeholder="Ej: 4" />
                                 </div>
                                 <button className="btn btn-secondary" onClick={cargarCuenta} disabled={!idCuenta}>
                                     <FileText size={13} /> Cargar Cuenta

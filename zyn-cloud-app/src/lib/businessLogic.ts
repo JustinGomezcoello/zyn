@@ -3,8 +3,10 @@ import Decimal from 'decimal.js'
 
 Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP })
 
-export const D = (v: number | string | null | undefined) =>
-    new Decimal(String(v ?? 0).replace(',', ''))
+export const D = (v: number | string | null | undefined) => {
+    const s = String(v ?? 0).replace(/,/g, '').trim()
+    return new Decimal(s === '' ? 0 : s)
+}
 
 /** Calcula IVA: valor = costoConIVA - costoConIVA/(1+iva) */
 export function calcularIVA(costoConIVA: Decimal, iva: Decimal) {
