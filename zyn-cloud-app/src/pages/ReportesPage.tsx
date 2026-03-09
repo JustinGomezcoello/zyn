@@ -521,6 +521,14 @@ export default function ReportesPage() {
             return fmt(val)
         }
         if (col.toLowerCase().includes('porcentaje') || col.includes('pct')) {
+            const absolutePercentages = [
+                'PorcentajeGanancia', 'PorcentajeIRF2', 'PorcentajeRetIVA2',
+                'PorcentajeComisionBanco2', 'PorcentajeIRF3', 'PorcentajeRetIVA3',
+                'PorcentajeComisionBanco3'
+            ]
+            if (absolutePercentages.includes(col)) {
+                return `${Number(val)}%`
+            }
             return `${(Number(val) * 100).toFixed(2)}%`
         }
         return String(val)

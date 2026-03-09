@@ -391,7 +391,7 @@ export default function CuentasCobrarPage() {
             SaldoXCobrarCliente: round2(saldoCliente).toNumber(),
             CostoConIVA: round2(costo).toNumber(),
             UtilidadDescontadoIVASRI: round2(utilidad).toNumber(),
-            PorcentajeGanancia: costo.gt(0) ? round2(utilidad.div(costo).times(100)).toNumber() : 0,
+            PorcentajeGanancia: costo.gt(0) ? utilidad.div(costo).times(100).toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber() : 0,
         }
 
         const { error } = await supabase.from('cuentas_cobrar').insert(row)
@@ -692,7 +692,7 @@ function ModalEditCuenta({ data, customBanks, onClose, onSaved, userId }: {
             TotalesValorNetoTC: round2(t2.neto.plus(t3.neto)).toNumber(),
             SaldoXCobrarCliente: round2(saldo).toNumber(),
             UtilidadDescontadoIVASRI: round2(utilidad).toNumber(),
-            PorcentajeGanancia: costo.gt(0) ? round2(utilidad.div(costo).times(100)).toNumber() : 0,
+            PorcentajeGanancia: costo.gt(0) ? utilidad.div(costo).times(100).toDecimalPlaces(4, Decimal.ROUND_HALF_UP).toNumber() : 0,
         }).eq('user_id', userId).eq('id', data.id as number)
         setSaving(false)
         if (error) return t(getFriendlyErrorMessage(error), 'error')
