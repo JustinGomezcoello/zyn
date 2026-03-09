@@ -544,6 +544,7 @@ export default function ComprasPage() {
 
     // Gestión por IdCompra
     const [idCompra, setIdCompra] = usePersistentState('comp_idCompra', '')
+    const [loadedIdCompra, setLoadedIdCompra] = useState('')
 
     // Cambiar producto
     const [codigoCambiar, setCodigoCambiar] = useState('')
@@ -654,6 +655,7 @@ export default function ComprasPage() {
         setNombre(data.NombreProducto ?? '')
         setCantidad(String(data.CantidadComprada ?? 1))
         setProveedor(data.Proveedor ?? '')
+        setLoadedIdCompra(idCompra)
         showToast('success', 'Datos cargados. Modifique Fecha o Proveedor y aplaste Modificar.')
     }
 
@@ -735,7 +737,7 @@ export default function ComprasPage() {
             await supabase.from('compras').delete().eq('id', c.id)
 
             showToast('success', `Compra #${c.id} eliminada ${idsOrdenesAEliminar.length > 0 ? '(con dependencias restadas)' : ''}.`)
-            setIdCompra(''); setCodigo(''); setNombre(''); setCantidad('1'); setProveedor('')
+            setIdCompra(''); setLoadedIdCompra(''); setCodigo(''); setNombre(''); setCantidad('1'); setProveedor('')
             loadCompras()
         } catch (err: any) {
             showToast('error', getFriendlyErrorMessage(err))
@@ -880,14 +882,15 @@ export default function ComprasPage() {
                             <input value={idCompra} onChange={e => setIdCompra(e.target.value)} placeholder="ID de la compra" type="number" />
                         </div>
                         <div className="btn-group">
-                            <button className="btn btn-secondary" onClick={handleCargar}>
+                            <button className="btn btn-secondary" onClick={handleCargar} disabled={!idCompra}>
                                 <Download size={14} /> Cargar Datos
                             </button>
                             <button className="btn btn-secondary" onClick={handleModificar}
+                                disabled={!idCompra || idCompra !== loadedIdCompra}
                                 style={{ borderColor: 'rgba(59,130,246,0.4)', color: 'var(--accent-blue)' }}>
                                 <Edit3 size={14} /> Modificar
                             </button>
-                            <button className="btn btn-danger" onClick={handleEliminar}>
+                            <button className="btn btn-danger" onClick={handleEliminar} disabled={!idCompra || idCompra !== loadedIdCompra}>
                                 <Trash2 size={14} /> Eliminar
                             </button>
                             <button className="btn btn-secondary" onClick={() => setShowLista(true)}

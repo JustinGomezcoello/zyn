@@ -79,6 +79,7 @@ function PaymentSection({ type, onShowMostrar, onShowConsultar }: { type: 'consu
     // States
     const [searchOrder, setSearchOrder] = usePersistentState(`cxp_${type}_searchOrder`, '')
     const [searchId, setSearchId] = usePersistentState(`cxp_${type}_searchId`, '')
+    const [loadedId, setLoadedId] = useState('')
 
     // Form Data
     const [formData, setFormData] = usePersistentState(`cxp_${type}_formData`, {
@@ -189,6 +190,7 @@ function PaymentSection({ type, onShowMostrar, onShowConsultar }: { type: 'consu
                 comprobante: record[config.colComprobante]
             })
             setSearchOrder(String(numOrden)) // Set order number too
+            setLoadedId(searchId)
         } catch (err: any) {
             toast(getFriendlyErrorMessage(err), 'error')
         } finally {
@@ -298,6 +300,7 @@ function PaymentSection({ type, onShowMostrar, onShowConsultar }: { type: 'consu
             toast('Pago modificado correctamente.', 'success')
             setFormData({ ...formData, id: '', valor: '', banco: '', cuenta: '', comprobante: '' })
             setSearchId('')
+            setLoadedId('')
         } catch (err: any) {
             toast(getFriendlyErrorMessage(err), 'error')
         } finally {
@@ -317,6 +320,7 @@ function PaymentSection({ type, onShowMostrar, onShowConsultar }: { type: 'consu
             toast('Pago eliminado correctamente.', 'success')
             setFormData({ ...formData, id: '', valor: '', banco: '', cuenta: '', comprobante: '' })
             setSearchId('')
+            setLoadedId('')
         } catch (err: any) {
             toast(getFriendlyErrorMessage(err), 'error')
         } finally {
@@ -421,13 +425,13 @@ function PaymentSection({ type, onShowMostrar, onShowConsultar }: { type: 'consu
                         <label>🆔 Id Cuentas Por Pagar</label>
                         <input type="number" value={searchId} onChange={e => setSearchId(e.target.value)} placeholder="ID..." />
                     </div>
-                    <button className="btn btn-secondary" onClick={loadPaymentById} disabled={loading}>
+                    <button className="btn btn-secondary" onClick={loadPaymentById} disabled={loading || !searchId}>
                         <Search size={13} /> Cargar
                     </button>
-                    <button className="btn btn-primary" onClick={modifyPayment} disabled={loading || !formData.id} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                    <button className="btn btn-primary" onClick={modifyPayment} disabled={loading || !formData.id || searchId !== loadedId} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
                         <Edit size={13} /> Modificar
                     </button>
-                    <button className="btn btn-danger" onClick={deletePayment} disabled={loading || !formData.id}>
+                    <button className="btn btn-danger" onClick={deletePayment} disabled={loading || !formData.id || searchId !== loadedId}>
                         <Trash2 size={13} /> Eliminar
                     </button>
                 </div>

@@ -31,6 +31,7 @@ export default function PrestamosPage() {
     const [buscandoNombre, setBuscandoNombre] = useState(false)
 
     const [pIdLoad, setPIdLoad] = usePersistentState('prest_pIdLoad', '') // For loading/modifying existing loan
+    const [loadedPId, setLoadedPId] = useState('') // Tracks the successfully loaded loan ID
 
     // Devolucion Section
     const [dIdPrestamo, setDIdPrestamo] = usePersistentState('prest_dIdPrestamo', '')
@@ -38,6 +39,7 @@ export default function PrestamosPage() {
     const [dFecha, setDFecha] = usePersistentState('prest_dFecha', today())
 
     const [dIdLoad, setDIdLoad] = usePersistentState('prest_dIdLoad', '') // For loading/modifying existing devolution
+    const [loadedDId, setLoadedDId] = useState('') // Tracks the successfully loaded devolution ID
 
     // --- LOAD INITIAL DATA ---
     const loadData = useCallback(async () => {
@@ -125,8 +127,10 @@ export default function PrestamosPage() {
             setPCantidad(String(data.CantidadPrestadaTotal))
             setPFecha(data.FechaPrestamo)
             setPCliente(data.Cliente)
+            setLoadedPId(pIdLoad)
             showMsg('success', 'Datos del préstamo cargados.')
         } else {
+            setLoadedPId('')
             showMsg('error', 'Préstamo no encontrado.')
         }
     }
@@ -166,7 +170,7 @@ export default function PrestamosPage() {
             }).eq('id', pIdLoad)
 
             showMsg('success', 'Préstamo modificado.')
-            setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad('')
+            setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad(''); setLoadedPId('')
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -184,6 +188,7 @@ export default function PrestamosPage() {
             if (returns && returns.length > 0) throw new Error(`Existen devoluciones asociadas.`)
 
             const { data: loan } = await supabase.from('prestamos').select('*').eq('id', pIdLoad).single()
+            if (!loan) throw new Error('Préstamo no encontrado.')
             const { data: inv } = await supabase.from('inventario_usuario').select('*')
                 .eq('user_id', user!.id).eq('CodigoProducto', loan.CodigoProducto).single()
 
@@ -196,7 +201,7 @@ export default function PrestamosPage() {
             await supabase.from('prestamos').delete().eq('id', pIdLoad)
 
             showMsg('success', 'Préstamo eliminado.')
-            setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad('')
+            setPCodigo(''); setPNombre(''); setPCantidad(''); setPCliente(''); setPIdLoad(''); setLoadedPId('')
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -246,7 +251,7 @@ export default function PrestamosPage() {
 
             showMsg('success', 'Devolución registrada.')
             // Limpiar datos de devolución
-            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setDFecha(today())
+            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setLoadedDId(''); setDFecha(today())
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -259,9 +264,10 @@ export default function PrestamosPage() {
             setDIdPrestamo(String(data.IdPrestamo))
             setDCantidad(String(data.CantidadDevuelta))
             setDFecha(data.FechaDevolucion)
-
+            setLoadedDId(dIdLoad)
             showMsg('success', `Devolución cargada (ID P: ${data.IdPrestamo}).`)
         } else {
+            setLoadedDId('')
             showMsg('error', 'Devolución no encontrada.')
         }
     }
@@ -272,6 +278,7 @@ export default function PrestamosPage() {
         setSaving(true)
         try {
             const { data: oldDev } = await supabase.from('devoluciones').select('*').eq('id', dIdLoad).single()
+            if (!oldDev) throw new Error('Devolución original no encontrada.')
             const diff = qty - oldDev.CantidadDevuelta
 
             const { data: loan } = await supabase.from('prestamos').select('*').eq('id', oldDev.IdPrestamo).single()
@@ -298,7 +305,7 @@ export default function PrestamosPage() {
             }).eq('id', dIdLoad)
 
             showMsg('success', 'Devolución modificada.')
-            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setDFecha(today());
+            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setLoadedDId(''); setDFecha(today());
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -311,7 +318,9 @@ export default function PrestamosPage() {
         setSaving(true)
         try {
             const { data: dev } = await supabase.from('devoluciones').select('*').eq('id', dIdLoad).single()
+            if (!dev) throw new Error('Devolución no encontrada.')
             const { data: loan } = await supabase.from('prestamos').select('*').eq('id', dev.IdPrestamo).single()
+            if (!loan) throw new Error('Préstamo correspondiente no encontrado.')
             const { data: inv } = await supabase.from('inventario_usuario').select('*').eq('user_id', user!.id).eq('CodigoProducto', dev.CodigoProducto).single()
 
             if (inv) {
@@ -329,7 +338,7 @@ export default function PrestamosPage() {
             await supabase.from('devoluciones').delete().eq('id', dIdLoad)
 
             showMsg('success', 'Devolución eliminada.')
-            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setDFecha(today());
+            setDIdPrestamo(''); setDCantidad(''); setDIdLoad(''); setLoadedDId(''); setDFecha(today());
             loadData()
         } catch (err: any) { showMsg('error', getFriendlyErrorMessage(err)) }
         setSaving(false)
@@ -409,13 +418,13 @@ export default function PrestamosPage() {
                                     <input type="text" value={pIdLoad} onChange={e => setPIdLoad(e.target.value)} placeholder="ID..." />
                                 </div>
                                 <div className="btn-group" style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn btn-secondary" onClick={cargarPrestamo} disabled={loading}>
+                                    <button className="btn btn-secondary" onClick={cargarPrestamo} disabled={loading || !pIdLoad}>
                                         <RefreshCw size={13} /> Cargar
                                     </button>
-                                    <button className="btn btn-primary" onClick={modificarPrestamo} disabled={saving || !pIdLoad} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                                    <button className="btn btn-primary" onClick={modificarPrestamo} disabled={saving || !pIdLoad || pIdLoad !== loadedPId} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
                                         <Edit size={13} /> Modificar
                                     </button>
-                                    <button className="btn btn-danger" onClick={eliminarPrestamo} disabled={saving || !pIdLoad}>
+                                    <button className="btn btn-danger" onClick={eliminarPrestamo} disabled={saving || !pIdLoad || pIdLoad !== loadedPId}>
                                         <Trash2 size={13} /> Eliminar
                                     </button>
                                 </div>
@@ -474,13 +483,13 @@ export default function PrestamosPage() {
                                     <input type="text" value={dIdLoad} onChange={e => setDIdLoad(e.target.value)} placeholder="ID..." />
                                 </div>
                                 <div className="btn-group" style={{ display: 'flex', gap: 8 }}>
-                                    <button className="btn btn-secondary" onClick={cargarDevolucion} disabled={loading}>
+                                    <button className="btn btn-secondary" onClick={cargarDevolucion} disabled={loading || !dIdLoad}>
                                         <RefreshCw size={13} /> Cargar
                                     </button>
-                                    <button className="btn btn-primary" onClick={modificarDevolucion} disabled={saving || !dIdLoad} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
+                                    <button className="btn btn-primary" onClick={modificarDevolucion} disabled={saving || !dIdLoad || dIdLoad !== loadedDId} style={{ background: 'linear-gradient(135deg,#3b82f6,#2563eb)', border: 'none' }}>
                                         <Edit size={13} /> Modificar
                                     </button>
-                                    <button className="btn btn-danger" onClick={eliminarDevolucion} disabled={saving || !dIdLoad}>
+                                    <button className="btn btn-danger" onClick={eliminarDevolucion} disabled={saving || !dIdLoad || dIdLoad !== loadedDId}>
                                         <Trash2 size={13} /> Eliminar
                                     </button>
                                 </div>

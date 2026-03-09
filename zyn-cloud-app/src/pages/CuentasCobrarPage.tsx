@@ -230,6 +230,7 @@ export default function CuentasCobrarPage() {
 
     /* ─ cargar/eliminar ─ */
     const [idCuenta, setIdCuenta] = usePersistentState('cxc_idCuenta', '')
+    const [loadedIdCuenta, setLoadedIdCuenta] = useState('')
 
     /* ─ modales ─ */
     const [modal, setModal] = useState<null | 'ef' | 'tc' | 'confirm' | 'edit'>(null)
@@ -405,6 +406,7 @@ export default function CuentasCobrarPage() {
         const { data } = await supabase.from('cuentas_cobrar').select('*')
             .eq('user_id', user.id).eq('id', parseInt(idCuenta)).single()
         if (!data) return showToast('e', '❌ No se encontró ninguna Cuenta por Cobrar con el ID ingresado.')
+        setLoadedIdCuenta(idCuenta)
         setEditData(data); setModal('edit')
     }
 
@@ -416,7 +418,7 @@ export default function CuentasCobrarPage() {
         const { error } = await supabase.from('cuentas_cobrar').delete()
             .eq('user_id', user.id).eq('id', parseInt(idCuenta))
         if (error) return showToast('e', getFriendlyErrorMessage(error))
-        showToast('s', `Cuenta #${idCuenta} eliminada.`); setIdCuenta('')
+        showToast('s', `Cuenta #${idCuenta} eliminada.`); setIdCuenta(''); setLoadedIdCuenta('')
     }
 
     /* ─ Render ───────────────────────────────────────────────── */
@@ -509,10 +511,10 @@ export default function CuentasCobrarPage() {
                                     <label>🆔 IdCuenta</label>
                                     <input type="number" value={idCuenta} onChange={e => setIdCuenta(e.target.value)} placeholder="ID de la cuenta" />
                                 </div>
-                                <button className="btn btn-secondary" onClick={cargarCuenta}>
+                                <button className="btn btn-secondary" onClick={cargarCuenta} disabled={!idCuenta}>
                                     <FileText size={13} /> Cargar Cuenta
                                 </button>
-                                <button className="btn btn-danger" onClick={eliminarCuenta}>
+                                <button className="btn btn-danger" onClick={eliminarCuenta} disabled={!idCuenta || idCuenta !== loadedIdCuenta}>
                                     <Trash2 size={13} /> Eliminar
                                 </button>
                             </div>

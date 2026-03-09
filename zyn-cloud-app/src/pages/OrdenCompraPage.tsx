@@ -231,6 +231,7 @@ export default function OrdenCompraPage() {
 
     /* ── Cargar / Modificar / Eliminar ──────────────────────────── */
     const [idOrden, setIdOrden] = usePersistentState('oc_idOrden', '')
+    const [loadedIdOrden, setLoadedIdOrden] = useState('')
     const [numOrdenElim, setNumOrdenElim] = usePersistentState('oc_numOrdenElim', '')
 
     /* ── Estado ─────────────────────────────────────────────────── */
@@ -522,6 +523,7 @@ export default function OrdenCompraPage() {
         setCodigoProd(data.CodigoProducto ?? '')
         setNombreProd(data.NombreProducto ?? '')
         setCantidadVendida(String(data.CantidadVendida ?? ''))
+        setLoadedIdOrden(idOrden)
         showToast('success', 'Datos cargados. Solo modifica Fecha, Cliente, Teléfono o Ciudad.')
     }
 
@@ -581,7 +583,7 @@ export default function OrdenCompraPage() {
 
         await supabase.from('orden_compra').delete().eq('id', orden.id)
         showToast('success', `Orden #${orden.id} eliminada y stock restaurado.`)
-        setIdOrden('')
+        setIdOrden(''); setLoadedIdOrden('')
     }
 
     /* ── ELIMINAR ORDEN COMPLETA por NumOrdenCompra ──────────────── */
@@ -753,14 +755,15 @@ export default function OrdenCompraPage() {
                                         <input type="number" value={idOrden} onChange={e => setIdOrden(e.target.value)} placeholder="ID de la línea" />
                                     </div>
                                     <div className="btn-group">
-                                        <button className="btn btn-secondary" onClick={cargarDatos}>
+                                        <button className="btn btn-secondary" onClick={cargarDatos} disabled={!idOrden}>
                                             <Download size={14} /> Cargar Datos
                                         </button>
                                         <button className="btn btn-secondary" onClick={modificarOrden}
+                                            disabled={!idOrden || idOrden !== loadedIdOrden}
                                             style={{ borderColor: 'rgba(59,130,246,0.4)', color: 'var(--accent-blue)' }}>
                                             <Edit3 size={14} /> Modificar
                                         </button>
-                                        <button className="btn btn-danger" onClick={eliminarProducto}>
+                                        <button className="btn btn-danger" onClick={eliminarProducto} disabled={!idOrden || idOrden !== loadedIdOrden}>
                                             <Trash2 size={14} /> Eliminar Producto
                                         </button>
                                     </div>
