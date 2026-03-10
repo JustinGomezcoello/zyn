@@ -316,7 +316,7 @@ export default function OrdenCompraPage() {
             return showToast('error', `El producto ${codigoProd.trim()} ya está en la orden actual.`)
         }
 
-        // Obtener datos del catálogo global (productos sin user_id)
+        // Obtener datos del producto desde el catálogo
         const { data: prod } = await supabase.from('productos')
             .select('NombreProducto, PrecioVentaConIVA, PvpSinIVA, CostoConIVA, IVA')
             .eq('CodigoProducto', codigoProd.trim().toUpperCase()).limit(1).single()

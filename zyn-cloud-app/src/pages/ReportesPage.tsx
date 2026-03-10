@@ -1,5 +1,5 @@
 ﻿import { useState, useCallback, useEffect } from 'react'
-import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, Users, FileSpreadsheet } from 'lucide-react'
+import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, Users, FileSpreadsheet, Plus, Trash2 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -8,6 +8,7 @@ import { fmt, formatDate } from '../lib/businessLogic'
 import * as XLSX from 'xlsx'
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import ProductForm from '../components/ProductForm'
 
 const today = () => new Date().toISOString().split('T')[0]
 
@@ -23,12 +24,12 @@ interface ReportConfig {
     hasFilters?: boolean
 }
 
-const GLOBAL_REPORTS = ['productos']
+const GLOBAL_REPORTS: string[] = []
 
 const REPORTS: ReportConfig[] = [
     { key: 'compras', label: 'Compras', icon: <ShoppingCart size={16} />, table: 'compras', cols: ['id', 'FechaCompra', 'CodigoProducto', 'NombreProducto', 'CantidadComprada', 'CostoSinIVA', 'PorcentajeIVA', 'IVA', 'CostoConIVA', 'Proveedor'], hasFilters: true },
     { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['id', 'CodigoProducto', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario'], hasFilters: true },
-    { key: 'productos', label: 'Catálogo Global', icon: <Package size={16} />, table: 'productos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'Categoria', 'CostoConIVA', 'PvpSinIVA', 'CalculoIVA', 'PrecioVentaConIVA', 'IVA'], hasFilters: true },
+    { key: 'productos', label: 'Mi Catálogo', icon: <Package size={16} />, table: 'productos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'Categoria', 'CostoConIVA', 'PvpSinIVA', 'CalculoIVA', 'PrecioVentaConIVA', 'IVA'], hasFilters: true },
     { key: 'ordenes', label: 'Órdenes de Compra', icon: <FileText size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'FechaOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'NombreConsultor', 'PorcentajeComisionConsultor', 'ComisionPorPagarConsultor', 'NombrePadreEmpresarial', 'PorcentajePadreEmpresarial', 'ComisionPorPagarPadreEmpresarial', 'PorcentajeIVA', 'CodigoProducto', 'NombreProducto', 'CantidadVendida', 'PorcentajeDescuento', 'PrecioVentaConIVA', 'PVPSinIVA', 'ValorDescuento', 'BaseRetencion', 'ValorBaseRetencion', 'ValorCliente', 'ValorXCobrarConIVA', 'CostoConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
     { key: 'cobrar', label: 'Cuentas por Cobrar Pagadas', icon: <DollarSign size={16} />, table: 'cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'NombreCliente', 'TipoPagoEfecTrans', 'AbonoEfectivoTransferencia1', 'FechaPagadoEfectivo1', 'AbonoEfectivoTransferencia2', 'FechaPagadoEfectivo2', 'AbonoEfectivoTransferencia3', 'FechaPagadoEfectivo3', 'TotalEfectivo', 'Factura', 'NumeroFactura', 'IVAPagoEfectivoFactura', 'TipoPago2', 'ValorPagadoTarjeta2', 'Banco2', 'Lote2', 'FechaPagado2', 'PorcentajeComisionBanco2', 'ComisionTCFactura2', 'PorcentajeIRF2', 'IRF2', 'PorcentajeRetIVA2', 'RetIVAPagoTarjetaCredito2', 'TotalComisionBanco2', 'ValorNetoTC2', 'TipoPago3', 'ValorPagadoTarjeta3', 'Banco3', 'Lote3', 'FechaPagado3', 'PorcentajeComisionBanco3', 'ComisionTCFactura3', 'PorcentajeIRF3', 'IRF3', 'PorcentajeRetIVA3', 'RetIVAPagoTarjetaCredito3', 'TotalComisionBanco3', 'ValorNetoTC3', 'ComisionBancoTotales', 'TotalesValorNetoTC', 'ValorXCobrarConIVATotal', 'BaseRetencionTotal', 'SaldoXCobrarCliente', 'CostoConIVA', 'UtilidadDescontadoIVASRI', 'PorcentajeGanancia'], hasFilters: true },
     { key: 'consultar_cobrar', label: 'Consultar Cuentas por Cobrar', icon: <DollarSign size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['NumOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'ValorXCobrarConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
@@ -38,7 +39,7 @@ const REPORTS: ReportConfig[] = [
 
 export default function ReportesPage() {
     const { user } = useAuth()
-    const { toast } = useToast()
+    const { toast, confirm: appConfirm } = useToast()
     const [activeReport, setActiveReport] = usePersistentState('rep_activeReport', REPORTS[0].key)
     const [data, setData] = useState<any[]>([])
     const [loading, setLoading] = useState(false)
@@ -58,6 +59,7 @@ export default function ReportesPage() {
     })
     const [summary, setSummary] = useState<React.ReactNode>('')
     const [summaryString, setSummaryString] = useState('')
+    const [showProductForm, setShowProductForm] = useState(false)
 
     const report = REPORTS.find(r => r.key === activeReport)!
     const loadReport = useCallback(async () => {
@@ -588,9 +590,6 @@ export default function ReportesPage() {
                         <div className="card-title" style={{ marginBottom: 0 }}>
                             {report.icon}
                             <span>{report.label}</span>
-                            {GLOBAL_REPORTS.includes(report.key) && (
-                                <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent-teal)', fontWeight: 500 }}>🌐 Global</span>
-                            )}
                         </div>                        <div className="btn-group">
                             {report.hasFilters && (
                                 <button
@@ -599,6 +598,12 @@ export default function ReportesPage() {
                                 >
                                     <Filter size={14} />
                                     {showFilters ? 'Ocultar Filtros' : 'Filtros'}
+                                </button>
+                            )}
+                            {report.key === 'productos' && (
+                                <button className="btn btn-primary btn-sm" onClick={() => setShowProductForm(true)}>
+                                    <Plus size={14} />
+                                    Nuevo Producto
                                 </button>
                             )}
                             <button className="btn btn-primary btn-sm" onClick={loadReport}>
@@ -796,20 +801,36 @@ export default function ReportesPage() {
                         </div>
                     </div>
 
-                    {/* Resumen */}
                     {summary && (
                         <div style={{
-                            background: 'rgba(0,212,170,0.1)',
-                            border: '1px solid var(--accent-teal)',
-                            borderRadius: 'var(--radius-md)',
                             padding: 12,
+                            background: 'var(--bg-secondary)',
+                            borderRadius: 'var(--radius-md)',
                             marginBottom: 16,
-                            fontSize: 13,
+                            fontSize: 14,
                             fontWeight: 600,
-                            color: 'var(--accent-teal)'
+                            color: 'var(--text-primary)',
+                            display: 'flex',
+                            float: 'right',
+                            alignItems: 'center',
+                            gap: 8,
+                            border: '1px solid var(--border)'
                         }}>
                             {summary}
                         </div>
+                    )}
+
+                    <div style={{ clear: 'both', marginBottom: 16 }} />
+
+                    {showProductForm && (
+                        <ProductForm
+                            onClose={() => setShowProductForm(false)}
+                            onSuccess={() => {
+                                setShowProductForm(false)
+                                loadReport()
+                                toast('Producto creado exitosamente', 'success')
+                            }}
+                        />
                     )}
 
                     {/* Tabla */}
@@ -825,12 +846,13 @@ export default function ReportesPage() {
                                         {report.cols.map(col => (
                                             <th key={col}>{col}</th>
                                         ))}
+                                        {report.key === 'productos' && <th>Acciones</th>}
                                     </tr>
                                 </thead>
                                 <tbody>
                                     {filtered.length === 0 ? (
                                         <tr>
-                                            <td colSpan={report.cols.length} style={{
+                                            <td colSpan={report.cols.length + (report.key === 'productos' ? 1 : 0)} style={{
                                                 textAlign: 'center',
                                                 color: 'var(--text-muted)',
                                                 padding: 32
@@ -842,8 +864,77 @@ export default function ReportesPage() {
                                         filtered.map((row, idx) => (
                                             <tr key={idx}>
                                                 {report.cols.map(col => (
-                                                    <td key={col}>{formatValue(col, row[col])}</td>
+                                                    <td key={col} className={(col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || col.toLowerCase().includes('valor') || col.toLowerCase().includes('cantidad') || col.toLowerCase().includes('saldo') || col.includes('IVA') || col.includes('Comision') || col.includes('Total') || col.includes('Porcentaje')) ? 'td-number' : ''}>
+                                                        {col === 'CodigoProducto' ? (
+                                                            <span className="badge badge-blue">{formatValue(col, row[col])}</span>
+                                                        ) : col.includes('OrdenCompra') || col === 'Factura' ? (
+                                                            <span className="badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                                                                {formatValue(col, row[col])}
+                                                            </span>
+                                                        ) : (
+                                                            formatValue(col, row[col])
+                                                        )}
+                                                    </td>
                                                 ))}
+                                                {report.key === 'productos' && (
+                                                    <td>
+                                                        <button
+                                                            className="btn btn-danger btn-sm"
+                                                            title="Eliminar producto y todo lo relacionado (Órdenes, Inventario, Préstamos)"
+                                                            onClick={async () => {
+                                                                const code = row['CodigoProducto']
+                                                                const name = row['NombreProducto']
+                                                                const ok = await appConfirm({
+                                                                    title: '⚠️ Eliminar Producto en Cascada',
+                                                                    message: `¿Estás completamente seguro de que deseas eliminar el producto "${name}" (${code})?\n\nESTO ELIMINARÁ PERMANENTEMENTE:\n- Todo el inventario asociado.\n- Todas las órdenes de compra de este producto.\n- Préstamos y devoluciones asociados.\n\nEsta acción NO SE PUEDE DESHACER.`
+                                                                })
+                                                                if (!ok) return
+
+                                                                setLoading(true)
+                                                                try {
+                                                                    // En lugar de requerir ON DELETE CASCADE en la base de datos (que falla por falta de UNIQUE en CodigoProducto global),
+                                                                    // lo hacemos manualmente desde el cliente.
+
+                                                                    // Primero, identificamos órdenes asociadas para también limpiar cuentas por cobrar/pagar.
+                                                                    const { data: ordenes } = await supabase.from('orden_compra')
+                                                                        .select('NumOrdenCompra')
+                                                                        .eq('CodigoProducto', code)
+                                                                        .eq('user_id', user?.id)
+
+                                                                    if (ordenes && ordenes.length > 0) {
+                                                                        for (const ord of ordenes) {
+                                                                            await supabase.from('cuentas_cobrar').delete().eq('NumOrdenCompra', ord.NumOrdenCompra).eq('user_id', user?.id)
+                                                                            await supabase.from('cuentas_pagar_consultor').delete().eq('NumOrdenCompra', ord.NumOrdenCompra).eq('user_id', user?.id)
+                                                                            await supabase.from('cuentas_pagar_padre').delete().eq('NumOrdenCompra', ord.NumOrdenCompra).eq('user_id', user?.id)
+                                                                        }
+                                                                    }
+
+                                                                    // Luego eliminamos todas las dependencias directas del producto.
+                                                                    await supabase.from('inventario_usuario').delete().eq('CodigoProducto', code).eq('user_id', user?.id)
+                                                                    await supabase.from('orden_compra').delete().eq('CodigoProducto', code).eq('user_id', user?.id)
+                                                                    await supabase.from('compras').delete().eq('CodigoProducto', code).eq('user_id', user?.id)
+                                                                    await supabase.from('prestamos').delete().eq('CodigoProducto', code).eq('user_id', user?.id)
+                                                                    await supabase.from('devoluciones').delete().eq('CodigoProducto', code).eq('user_id', user?.id)
+
+                                                                    // Finalmente eliminamos el producto.
+                                                                    const { data: deletedData, error } = await supabase.from('productos').delete().eq('CodigoProducto', code).eq('user_id', user?.id).select()
+                                                                    if (error) throw error
+                                                                    if (!deletedData || deletedData.length === 0) {
+                                                                        throw new Error('No tienes permisos suficientes para eliminar este producto o ya no existe.')
+                                                                    }
+                                                                    toast(`Producto ${code} y todas sus referencias fueron eliminadas.`, 'success')
+                                                                    loadReport()
+                                                                } catch (err: any) {
+                                                                    toast(`Error al eliminar: ${err.message}`, 'error')
+                                                                } finally {
+                                                                    setLoading(false)
+                                                                }
+                                                            }}
+                                                        >
+                                                            <Trash2 size={14} />
+                                                        </button>
+                                                    </td>
+                                                )}
                                             </tr>
                                         ))
                                     )}
