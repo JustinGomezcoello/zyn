@@ -1,5 +1,5 @@
 ﻿import { useState, useCallback, useEffect } from 'react'
-import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, Users, FileSpreadsheet, Plus, Trash2 } from 'lucide-react'
+import { RefreshCw, Search, Download, X, Filter, ShoppingCart, Package, FileText, DollarSign, Users, FileSpreadsheet, Plus, Trash2, Pencil } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
@@ -60,6 +60,7 @@ export default function ReportesPage() {
     const [summary, setSummary] = useState<React.ReactNode>('')
     const [summaryString, setSummaryString] = useState('')
     const [showProductForm, setShowProductForm] = useState(false)
+    const [productToEdit, setProductToEdit] = useState<any>(null)
 
     const report = REPORTS.find(r => r.key === activeReport)!
     const loadReport = useCallback(async () => {
@@ -519,6 +520,9 @@ export default function ReportesPage() {
         if (col.toLowerCase().includes('fecha') && val) {
             return formatDate(val)
         }
+        if (col === 'IVA') {
+            return `${(Number(val) * 100).toFixed(0)}%`
+        }
         if ((col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || col.toLowerCase().includes('valor') || col.toLowerCase().includes('comision') || col.includes('Pagado') || col.includes('Saldo') || col.includes('Utilidad') || col.toLowerCase().includes('iva')) && typeof val === 'number') {
             return fmt(val)
         }
@@ -601,7 +605,7 @@ export default function ReportesPage() {
                                 </button>
                             )}
                             {report.key === 'productos' && (
-                                <button className="btn btn-primary btn-sm" onClick={() => setShowProductForm(true)}>
+                                <button className="btn btn-primary btn-sm" onClick={() => { setProductToEdit(null); setShowProductForm(true); }}>
                                     <Plus size={14} />
                                     Nuevo Producto
                                 </button>
@@ -824,11 +828,12 @@ export default function ReportesPage() {
 
                     {showProductForm && (
                         <ProductForm
+                            initialData={productToEdit}
                             onClose={() => setShowProductForm(false)}
                             onSuccess={() => {
                                 setShowProductForm(false)
                                 loadReport()
-                                toast('Producto creado exitosamente', 'success')
+                                toast('Producto guardado exitosamente', 'success')
                             }}
                         />
                     )}
@@ -877,7 +882,17 @@ export default function ReportesPage() {
                                                     </td>
                                                 ))}
                                                 {report.key === 'productos' && (
-                                                    <td>
+                                                    <td style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                                                        <button
+                                                            className="btn btn-primary btn-sm"
+                                                            title="Editar Producto"
+                                                            onClick={() => {
+                                                                setProductToEdit(row);
+                                                                setShowProductForm(true);
+                                                            }}
+                                                        >
+                                                            <Pencil size={14} />
+                                                        </button>
                                                         <button
                                                             className="btn btn-danger btn-sm"
                                                             title="Eliminar producto y todo lo relacionado (Órdenes, Inventario, Préstamos)"

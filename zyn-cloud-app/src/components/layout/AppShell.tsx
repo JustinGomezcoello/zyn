@@ -1,11 +1,12 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useTheme } from '../../contexts/ThemeContext'
 import {
     ShoppingCart, FileText, DollarSign, TrendingDown,
-    Package, BarChart2, LogOut, Sun, Moon
+    Package, BarChart2, LogOut, Sun, Moon, Search
 } from 'lucide-react'
+import ProductSearchModal from '../ProductSearchModal'
 
 const navItems = [
     { to: '/dashboard/compras', icon: ShoppingCart, label: 'Compras' },
@@ -20,6 +21,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
     const { user, signOut } = useAuth()
     const { theme, toggleTheme } = useTheme()
     const navigate = useNavigate()
+    const [isSearchOpen, setIsSearchOpen] = useState(false)
 
     const handleLogout = async () => {
         await signOut()
@@ -38,7 +40,17 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
 
                 <nav className="sidebar-nav">
-                    <div className="sidebar-section-label">Módulos</div>
+                    <div className="sidebar-section-label">Herramientas</div>
+                    <button
+                        onClick={() => setIsSearchOpen(true)}
+                        className="nav-item"
+                        style={{ width: '100%', background: 'transparent', border: 'none', cursor: 'pointer', textAlign: 'left', color: 'var(--accent-teal)', fontWeight: 'bold' }}
+                    >
+                        <Search size={18} />
+                        <span>Buscar Códigos</span>
+                    </button>
+
+                    <div className="sidebar-section-label" style={{ marginTop: 16 }}>Módulos</div>
                     {navItems.map(({ to, icon: Icon, label }) => (
                         <NavLink key={to} to={to} className={({ isActive }) => `nav-item${isActive ? ' active' : ''}`}>
                             <Icon size={18} />
@@ -66,6 +78,8 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             <main className="main-content">
                 {children}
             </main>
+
+            <ProductSearchModal isOpen={isSearchOpen} onClose={() => setIsSearchOpen(false)} />
         </div>
     )
 }

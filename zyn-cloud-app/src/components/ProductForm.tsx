@@ -6,19 +6,20 @@ import { getFriendlyErrorMessage } from '../lib/errorHandler'
 interface ProductFormProps {
     onClose: () => void
     onSuccess: () => void
+    initialData?: any
 }
 
-export default function ProductForm({ onClose, onSuccess }: ProductFormProps) {
+export default function ProductForm({ onClose, onSuccess, initialData }: ProductFormProps) {
     const [saving, setSaving] = useState(false)
     const [formData, setFormData] = useState({
-        CodigoProducto: '',
-        NombreProducto: '',
-        Categoria: '',
-        CostoConIVA: '',
-        PvpSinIVA: '',
-        CalculoIVA: '',
-        PrecioVentaConIVA: '',
-        IVA: '15' // Porcentaje visual, en BD es 0.15
+        CodigoProducto: initialData?.CodigoProducto || '',
+        NombreProducto: initialData?.NombreProducto || '',
+        Categoria: initialData?.Categoria || '',
+        CostoConIVA: initialData?.CostoConIVA?.toString() || '',
+        PvpSinIVA: initialData?.PvpSinIVA?.toString() || '',
+        CalculoIVA: initialData?.CalculoIVA?.toString() || '',
+        PrecioVentaConIVA: initialData?.PrecioVentaConIVA?.toString() || '',
+        IVA: initialData?.IVA !== undefined ? (Number(initialData.IVA) * 100).toString() : '15'
     })
 
     // Auto-cálculos básicos si se ingresa Costo o PVP
@@ -52,7 +53,7 @@ export default function ProductForm({ onClose, onSuccess }: ProductFormProps) {
             if (userError || !userData?.user) throw new Error('No se pudo verificar la sesión del usuario.')
             const userId = userData.user.id
 
-            const dataToInsert = {
+            const dataToUpsert = {
                 CodigoProducto: formData.CodigoProducto.trim().toUpperCase(),
                 NombreProducto: formData.NombreProducto.trim(),
                 Categoria: formData.Categoria.trim() || 'General',
@@ -64,23 +65,30 @@ export default function ProductForm({ onClose, onSuccess }: ProductFormProps) {
                 user_id: userId
             }
 
-            const { error } = await supabase.from('productos').insert(dataToInsert)
+            if (initialData) {
+                // Update
+                const { error } = await supabase.from('productos')
+                    .update(dataToUpsert)
+                    .eq('CodigoProducto', initialData.CodigoProducto)
+                    .eq('user_id', userId)
 
-            if (error) {
-                // Si el error es unique constraint (Ej: CodigoProducto ya existe para el usuario si hay un unique key)
-                throw error
-            }
+                if (error) throw error
+            } else {
+                // Insert
+                const { error } = await supabase.from('productos').insert(dataToUpsert)
+                if (error) throw error
 
-            // También inicializar el inventario para el usuario
-            if (userId) {
-                await supabase.from('inventario_usuario').insert({
-                    user_id: userId,
-                    CodigoProducto: dataToInsert.CodigoProducto,
-                    CantidadInicial: 0,
-                    CantidadVendida: 0,
-                    CantidadPrestada: 0,
-                    CantidadInventario: 0
-                }).select()
+                // También inicializar el inventario para el usuario
+                if (userId) {
+                    await supabase.from('inventario_usuario').insert({
+                        user_id: userId,
+                        CodigoProducto: dataToUpsert.CodigoProducto,
+                        CantidadInicial: 0,
+                        CantidadVendida: 0,
+                        CantidadPrestada: 0,
+                        CantidadInventario: 0
+                    }).select()
+                }
             }
 
             onSuccess()
@@ -98,7 +106,7 @@ export default function ProductForm({ onClose, onSuccess }: ProductFormProps) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                     <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Package size={18} style={{ color: 'var(--accent-teal)' }} />
-                        Nuevo Producto
+                        {initialData ? 'Editar Producto' : 'Nuevo Producto'}
                     </h3>
                     <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}><X size={14} /></button>
                 </div>
@@ -113,6 +121,7 @@ export default function ProductForm({ onClose, onSuccess }: ProductFormProps) {
                                 onChange={e => setFormData({ ...formData, CodigoProducto: e.target.value })}
                                 placeholder="Ej: PROD-001"
                                 style={{ textTransform: 'uppercase' }}
+                                disabled={!!initialData}
                             />
                         </div>
                         <div className="field">
