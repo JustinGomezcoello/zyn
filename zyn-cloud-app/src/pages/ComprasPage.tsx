@@ -155,14 +155,17 @@ function ModalBuscarProducto({ codigoActual, onSelect, onClose }: {
     const [productos, setProductos] = useState<Producto[]>([])
     const [filtro, setFiltro] = useState('')
     const [loading, setLoading] = useState(true)
+    const { user } = useAuth()
 
     useEffect(() => {
+        if (!user) return
         supabase.from('productos').select('id, CodigoProducto, NombreProducto, CostoConIVA, IVA')
+            .eq('user_id', user.id)
             .order('CodigoProducto').then(({ data }) => {
                 setProductos((data ?? []) as Producto[])
                 setLoading(false)
             })
-    }, [])
+    }, [user])
 
     const filtered = filtro
         ? productos.filter(p => p.CodigoProducto.toLowerCase().includes(filtro.toLowerCase()) || p.NombreProducto.toLowerCase().includes(filtro.toLowerCase()))
@@ -582,10 +585,10 @@ export default function ComprasPage() {
 
     /* Buscar nombre al salir del campo código */
     const buscarNombre = async () => {
-        if (!codigo.trim()) return setNombre('')
+        if (!user || !codigo.trim()) return setNombre('')
         setBuscandoNombre(true)
         const { data } = await supabase.from('productos')
-            .select('NombreProducto').eq('CodigoProducto', codigo.trim().toUpperCase())
+            .select('NombreProducto').eq('user_id', user.id).eq('CodigoProducto', codigo.trim().toUpperCase())
             .limit(1).single()
         if (data) setNombre(data.NombreProducto ?? '')
         else { setNombre(''); showToast('warn', `Producto "${codigo.trim()}" no encontrado en el catálogo.`) }
@@ -605,7 +608,7 @@ export default function ComprasPage() {
         setSaving(true)
         try {
             const { data: prod } = await supabase.from('productos')
-                .select('NombreProducto, CostoConIVA, IVA').eq('CodigoProducto', codigo.trim().toUpperCase()).limit(1).single()
+                .select('NombreProducto, CostoConIVA, IVA').eq('user_id', user.id).eq('CodigoProducto', codigo.trim().toUpperCase()).limit(1).single()
             if (!prod) { showToast('error', `Código "${codigo}" no existe en el catálogo.`); setSaving(false); return }
 
             const iva = D(prod.IVA); const costo = D(prod.CostoConIVA)

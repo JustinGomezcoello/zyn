@@ -68,15 +68,17 @@ function ModalBuscarProducto({ onClose, onSelect }: {
     onClose: () => void
     onSelect: (cod: string, nom: string) => void
 }) {
+    const { user } = useAuth()
     const [query, setQuery] = useState('')
     const [results, setResults] = useState<{ CodigoProducto: string; NombreProducto: string; PvpSinIVA: number; PrecioVentaConIVA: number }[]>([])
     const [loading, setLoading] = useState(false)
 
     const buscar = async () => {
-        if (!query.trim()) return
+        if (!query.trim() || !user) return
         setLoading(true)
         const { data } = await supabase.from('productos')
             .select('CodigoProducto, NombreProducto, PvpSinIVA, PrecioVentaConIVA')
+            .eq('user_id', user.id)
             .ilike('NombreProducto', `%${query.trim()}%`).order('CodigoProducto').limit(80)
         setResults(data ?? [])
         setLoading(false)
@@ -276,10 +278,10 @@ export default function OrdenCompraPage() {
 
     /* ── Buscar nombre de producto al salir del campo ───────────── */
     const buscarNombrePorCodigo = async () => {
-        if (!codigoProd.trim()) return setNombreProd('')
+        if (!codigoProd.trim() || !user) return setNombreProd('')
         setBuscandoNombre(true)
         const { data } = await supabase.from('productos')
-            .select('NombreProducto').eq('CodigoProducto', codigoProd.trim().toUpperCase()).limit(1).single()
+            .select('NombreProducto').eq('user_id', user.id).eq('CodigoProducto', codigoProd.trim().toUpperCase()).limit(1).single()
         if (data) setNombreProd(data.NombreProducto)
         else { setNombreProd(''); showToast('warn', `Código "${codigoProd.trim()}" no existe en el catálogo.`) }
         setBuscandoNombre(false)
@@ -319,7 +321,7 @@ export default function OrdenCompraPage() {
         // Obtener datos del producto desde el catálogo
         const { data: prod } = await supabase.from('productos')
             .select('NombreProducto, PrecioVentaConIVA, PvpSinIVA, CostoConIVA, IVA')
-            .eq('CodigoProducto', codigoProd.trim().toUpperCase()).limit(1).single()
+            .eq('user_id', user.id).eq('CodigoProducto', codigoProd.trim().toUpperCase()).limit(1).single()
         if (!prod) return showToast('error', `Producto "${codigoProd.trim()}" no existe en el catálogo.`)
 
         // Verificar stock en inventario del usuario

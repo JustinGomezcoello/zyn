@@ -69,6 +69,7 @@ export default function PrestamosPage() {
         setBuscandoNombre(true)
         const { data } = await supabase.from('productos')
             .select('NombreProducto')
+            .eq('user_id', user.id)
             .eq('CodigoProducto', pCodigo.trim().toUpperCase())
             .limit(1).single()
 

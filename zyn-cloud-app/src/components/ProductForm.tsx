@@ -45,8 +45,8 @@ export default function ProductForm({ onClose, onSuccess, initialData }: Product
 
             setFormData(prev => ({
                 ...prev,
-                CalculoIVA: calcIva.toFixed(4),
-                PrecioVentaConIVA: precioVenta.toFixed(4)
+                CalculoIVA: calcIva.toFixed(2),
+                PrecioVentaConIVA: precioVenta.toFixed(2)
             }))
         }
     }, [formData.PvpSinIVA, formData.IVA])
@@ -357,8 +357,9 @@ export default function ProductForm({ onClose, onSuccess, initialData }: Product
                                 />
                             </div>
                             <div className="field">
-                                <label>Categoría</label>
+                                <label>Categoría *</label>
                                 <input
+                                    required
                                     value={formData.Categoria}
                                     onChange={e => setFormData({ ...formData, Categoria: e.target.value })}
                                     placeholder="Ej: Ropa"
@@ -373,34 +374,48 @@ export default function ProductForm({ onClose, onSuccess, initialData }: Product
                                 />
                             </div>
                             <div className="field">
-                                <label>Costo con IVA</label>
+                                <label>Costo con IVA *</label>
                                 <input
+                                    required
                                     type="number" step="0.01" min="0"
                                     value={formData.CostoConIVA}
                                     onChange={e => setFormData({ ...formData, CostoConIVA: e.target.value })}
                                 />
                             </div>
                             <div className="field">
-                                <label>PVP sin IVA</label>
+                                <label>PVP sin IVA *</label>
                                 <input
+                                    required
                                     type="number" step="0.01" min="0"
                                     value={formData.PvpSinIVA}
                                     onChange={e => setFormData({ ...formData, PvpSinIVA: e.target.value })}
                                 />
                             </div>
                             <div className="field">
-                                <label>Cálculo IVA</label>
+                                <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Cálculo IVA</span>
+                                    <span style={{ fontSize: 10, color: 'var(--accent-teal)' }}>(Automático)</span>
+                                </label>
                                 <input
                                     type="number" step="0.01"
                                     value={formData.CalculoIVA}
+                                    readOnly
+                                    className="readonly"
+                                    style={{ background: 'var(--bg-card)', opacity: 0.8, cursor: 'not-allowed', color: 'var(--accent-teal)', fontWeight: 'bold' }}
                                     onChange={e => setFormData({ ...formData, CalculoIVA: e.target.value })}
                                 />
                             </div>
                             <div className="field">
-                                <label>Precio Venta con IVA</label>
+                                <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                    <span>Precio Venta con IVA</span>
+                                    <span style={{ fontSize: 10, color: 'var(--accent-teal)' }}>(Automático)</span>
+                                </label>
                                 <input
                                     type="number" step="0.01"
                                     value={formData.PrecioVentaConIVA}
+                                    readOnly
+                                    className="readonly"
+                                    style={{ background: 'var(--bg-card)', opacity: 0.8, cursor: 'not-allowed', color: 'var(--accent-teal)', fontWeight: 'bold' }}
                                     onChange={e => setFormData({ ...formData, PrecioVentaConIVA: e.target.value })}
                                 />
                             </div>

@@ -28,7 +28,7 @@ const GLOBAL_REPORTS: string[] = []
 
 const REPORTS: ReportConfig[] = [
     { key: 'compras', label: 'Compras', icon: <ShoppingCart size={16} />, table: 'compras', cols: ['id', 'FechaCompra', 'CodigoProducto', 'NombreProducto', 'CantidadComprada', 'CostoSinIVA', 'PorcentajeIVA', 'IVA', 'CostoConIVA', 'Proveedor'], hasFilters: true },
-    { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['id', 'CodigoProducto', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario'], hasFilters: true },
+    { key: 'inventario', label: 'Mi Inventario', icon: <Package size={16} />, table: 'inventario_usuario', cols: ['id', 'CodigoProducto', 'NombreProducto', 'CantidadInicial', 'CantidadVendida', 'CantidadPrestada', 'CantidadInventario'], hasFilters: true },
     { key: 'productos', label: 'Mi Catálogo', icon: <Package size={16} />, table: 'productos', cols: ['id', 'CodigoProducto', 'NombreProducto', 'Categoria', 'CostoConIVA', 'PvpSinIVA', 'CalculoIVA', 'PrecioVentaConIVA', 'IVA'], hasFilters: true },
     { key: 'ordenes', label: 'Órdenes de Compra', icon: <FileText size={16} />, table: 'vista_consultar_cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'FechaOrdenCompra', 'NombreCliente', 'Telefono', 'Ciudad', 'NombreConsultor', 'PorcentajeComisionConsultor', 'ComisionPorPagarConsultor', 'NombrePadreEmpresarial', 'PorcentajePadreEmpresarial', 'ComisionPorPagarPadreEmpresarial', 'PorcentajeIVA', 'CodigoProducto', 'NombreProducto', 'CantidadVendida', 'PorcentajeDescuento', 'PrecioVentaConIVA', 'PVPSinIVA', 'ValorDescuento', 'BaseRetencion', 'ValorBaseRetencion', 'ValorCliente', 'ValorXCobrarConIVA', 'CostoConIVA', 'SaldoXCobrarCliente'], hasFilters: true },
     { key: 'cobrar', label: 'Cuentas por Cobrar Pagadas', icon: <DollarSign size={16} />, table: 'cuentas_cobrar', cols: ['id', 'NumOrdenCompra', 'NombreCliente', 'TipoPagoEfecTrans', 'AbonoEfectivoTransferencia1', 'FechaPagadoEfectivo1', 'AbonoEfectivoTransferencia2', 'FechaPagadoEfectivo2', 'AbonoEfectivoTransferencia3', 'FechaPagadoEfectivo3', 'TotalEfectivo', 'Factura', 'NumeroFactura', 'IVAPagoEfectivoFactura', 'TipoPago2', 'ValorPagadoTarjeta2', 'Banco2', 'Lote2', 'FechaPagado2', 'PorcentajeComisionBanco2', 'ComisionTCFactura2', 'PorcentajeIRF2', 'IRF2', 'PorcentajeRetIVA2', 'RetIVAPagoTarjetaCredito2', 'TotalComisionBanco2', 'ValorNetoTC2', 'TipoPago3', 'ValorPagadoTarjeta3', 'Banco3', 'Lote3', 'FechaPagado3', 'PorcentajeComisionBanco3', 'ComisionTCFactura3', 'PorcentajeIRF3', 'IRF3', 'PorcentajeRetIVA3', 'RetIVAPagoTarjetaCredito3', 'TotalComisionBanco3', 'ValorNetoTC3', 'ComisionBancoTotales', 'TotalesValorNetoTC', 'ValorXCobrarConIVATotal', 'BaseRetencionTotal', 'SaldoXCobrarCliente', 'CostoConIVA', 'UtilidadDescontadoIVASRI', 'PorcentajeGanancia'], hasFilters: true },
@@ -71,7 +71,8 @@ export default function ReportesPage() {
 
         try {
             const isGlobal = GLOBAL_REPORTS.includes(report.key)
-            let query = supabase.from(report.table).select(report.cols.join(','))
+            const colsToSelect = report.cols.filter(c => !(report.key === 'inventario' && c === 'NombreProducto')).join(',')
+            let query = supabase.from(report.table).select(colsToSelect)
 
             // Filtro por usuario
             if (!isGlobal) {
@@ -132,6 +133,10 @@ export default function ReportesPage() {
                 }
             }
 
+            if (report.key === 'inventario') {
+                query = query.gt('CantidadInicial', 0)
+            }
+
             // Ordenar
             const orderCol = report.cols.includes('id') ? 'id' : report.cols[0]
             query = query.order(orderCol, { ascending: false })
@@ -140,7 +145,23 @@ export default function ReportesPage() {
 
             if (error) throw error
 
-            let finalData = result || []
+            let finalData: any[] = result || []
+
+            // Cruce de datos para NombreProducto en Mi Inventario
+            if (report.key === 'inventario' && finalData.length > 0) {
+                const codigos = Array.from(new Set(finalData.map(r => r.CodigoProducto)))
+                const { data: prods } = await supabase.from('productos')
+                    .select('CodigoProducto, NombreProducto')
+                    .in('CodigoProducto', codigos)
+                    .eq('user_id', user.id)
+                if (prods) {
+                    const prodMap = new Map(prods.map(p => [p.CodigoProducto, p.NombreProducto]))
+                    finalData = finalData.map(row => ({
+                        ...row,
+                        NombreProducto: prodMap.get(row.CodigoProducto) || 'Desconocido'
+                    }))
+                }
+            }
 
             // FIX: Agrupar por NumOrdenCompra para no duplicar el SaldoXCobrarCliente visualmente
             if (report.key === 'consultar_cobrar') {
@@ -848,9 +869,10 @@ export default function ReportesPage() {
                             <table>
                                 <thead>
                                     <tr>
-                                        {report.cols.map(col => (
-                                            <th key={col}>{col}</th>
-                                        ))}
+                                        {report.cols.map(col => {
+                                            const isNumberCol = (col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || col.toLowerCase().includes('valor') || col.toLowerCase().includes('cantidad') || col.toLowerCase().includes('saldo') || col.includes('IVA') || col.includes('Comision') || col.includes('Total') || col.includes('Porcentaje'))
+                                            return <th key={col} className={isNumberCol ? 'td-number' : ''}>{col}</th>
+                                        })}
                                         {report.key === 'productos' && <th>Acciones</th>}
                                     </tr>
                                 </thead>
@@ -868,19 +890,22 @@ export default function ReportesPage() {
                                     ) : (
                                         filtered.map((row, idx) => (
                                             <tr key={idx}>
-                                                {report.cols.map(col => (
-                                                    <td key={col} className={(col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || col.toLowerCase().includes('valor') || col.toLowerCase().includes('cantidad') || col.toLowerCase().includes('saldo') || col.includes('IVA') || col.includes('Comision') || col.includes('Total') || col.includes('Porcentaje')) ? 'td-number' : ''}>
-                                                        {col === 'CodigoProducto' ? (
-                                                            <span className="badge badge-blue">{formatValue(col, row[col])}</span>
-                                                        ) : col.includes('OrdenCompra') || col === 'Factura' ? (
-                                                            <span className="badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
-                                                                {formatValue(col, row[col])}
-                                                            </span>
-                                                        ) : (
-                                                            formatValue(col, row[col])
-                                                        )}
-                                                    </td>
-                                                ))}
+                                                {report.cols.map(col => {
+                                                    const isNumberCol = (col.toLowerCase().includes('precio') || col.toLowerCase().includes('costo') || col.toLowerCase().includes('valor') || col.toLowerCase().includes('cantidad') || col.toLowerCase().includes('saldo') || col.includes('IVA') || col.includes('Comision') || col.includes('Total') || col.includes('Porcentaje'))
+                                                    return (
+                                                        <td key={col} className={isNumberCol ? 'td-number' : ''}>
+                                                            {col === 'CodigoProducto' ? (
+                                                                <span className="badge badge-blue">{formatValue(col, row[col])}</span>
+                                                            ) : col.includes('OrdenCompra') || col === 'Factura' ? (
+                                                                <span className="badge" style={{ background: 'var(--bg-secondary)', color: 'var(--text-primary)', border: '1px solid var(--border)' }}>
+                                                                    {formatValue(col, row[col])}
+                                                                </span>
+                                                            ) : (
+                                                                formatValue(col, row[col])
+                                                            )}
+                                                        </td>
+                                                    )
+                                                })}
                                                 {report.key === 'productos' && (
                                                     <td style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                                                         <button
