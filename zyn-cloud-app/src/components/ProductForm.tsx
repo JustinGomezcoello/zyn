@@ -135,12 +135,21 @@ export default function ProductForm({ onClose, onSuccess, initialData }: Product
                 const data = new Uint8Array(ev.target?.result as ArrayBuffer)
                 const wb = XLSX.read(data, { type: 'array' })
                 const ws = wb.Sheets[wb.SheetNames[0]]
-                const jsonData = XLSX.utils.sheet_to_json<any>(ws, { defval: '' })
+                const rawJsonData = XLSX.utils.sheet_to_json<any>(ws, { defval: '' })
 
-                if (jsonData.length === 0) {
+                if (rawJsonData.length === 0) {
                     setExcelErrors(['El archivo está vacío o no tiene datos.'])
                     return
                 }
+
+                // Clean all keys (trim whitespace)
+                const jsonData = rawJsonData.map((row: any) => {
+                    const newRow: any = {}
+                    Object.keys(row).forEach(k => {
+                        newRow[k.trim()] = row[k]
+                    })
+                    return newRow
+                })
 
                 // Validate columns
                 const headers = Object.keys(jsonData[0])
